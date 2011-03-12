@@ -37,7 +37,7 @@ my %fields;
 $fields{'admin'} = {
 			'domain' 	=> 'domain',
 			'description'	=> 'description'
-		};
+};
 $fields{'domain'} = {
 			'domain'	=> 'domain',
 			'aliases'	=> 'aliases',
@@ -49,11 +49,16 @@ $fields{'domain'} = {
 			'created'	=> 'created',
 			'modified'	=> 'modified',
 			'active'	=> 'active'
-		};
+};
 $fields{'mailbox'} = {
 			'mailbox'	=> 'mailbox',
 			'username'	=> 'username'
-		};
+};
+$fields{'domain_admins'} = {
+			'domain'	=> 'domain',
+			'username'	=> 'username'
+};
+
 # # # # # # # # # # # # # # # # # 
 # # vpopmail cloning:
 #
@@ -62,29 +67,50 @@ foreach my $domain (@ARGV){
 	&printVdomInfo( &vdominfo($domain) );
 }
 
+	
+
 # # # # # # # # # # # # # # # # # 
 # # Subs to do vpopmail clones
 #
 
+## Needs some way of coping with there being no admin users in the db
+##+there are also 'ALL' admins, so a domain doesn't necessarily need
+##+its own.
 sub vdominfo() {
 	my $domain = shift;
 	my $db = &dbConnection;
 	my $usersQuery = "select count(*) from $tables{'mailbox'} where `$fields{'mailbox'}{'username'}` like '%$domain'";
 	my $usersCount = ($db->selectrow_array($usersQuery))[0];
+	my $domainAdminQuery = "select `$fields{'domain_admins'}{'username'}` from `$tables{'domain_admins'}` where `$fields{'domain_admins'}{'domain'}` = '$domain'";
+	print $domainAdminQuery."\n\n";
+	my $domainAdmin = $db->selectrow_array($domainAdminQuery);
 
 	my $domainInfoQuery = "select $fields{'domain'}{'aliases'}, $fields{'domain'}{'mailboxes'}, $fields{'domain'}{'maxquota'}, $fields{'domain'}{'quota'}, $fields{'domain'}{'transport'}, $fields{'domain'}{'backupmx'}, $fields{'domain'}{'created'}, $fields{'domain'}{'modified'}, $fields{'domain'}{'active'}";
 	$domainInfoQuery.= " from $tables{'domain'} where $fields{'domain'}{'domain'} = '$domain'";
 	my $domainInfo=$db->selectrow_hashref($domainInfoQuery);
 	$$domainInfo{'_usersCount'} =  $usersCount;
+	$$domainInfo{'_adminList'} = $domainAdmin;
 	return $domainInfo;
 }
 sub printVdomInfo(){
 	## This needs to be sorted properly:
 	my %info =%{(shift)};
-	foreach ((keys(%info))){
-		say "$_:\t$info{$_}";
+	my $key;
+	foreach $key (keys(%info)){
+		my $value = $info{$key};
+		print "$key\t";
+		if(ref $value eq 'ARRAY'){
+			foreach(@$value){
+				print $_." ";
+			}
+			print "\n";
+		}else{
+			say $value;
+		}
 	}
 }
+
+#sub vuserinfo() {
 
 
 
