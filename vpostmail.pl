@@ -82,8 +82,6 @@ sub printVdomInfo(){
 	## This needs to be sorted properly:
 	my %info =%{(shift)};
 	foreach ((keys(%info))){
-#		printf(%-15s $_);
-#		print "$info{$_}\s";
 		say "$_:\t$info{$_}";
 	}
 }
