@@ -1,5 +1,5 @@
 #! /usr/bin/perl
-use warnings;
+#use warnings;
 use strict;
 use 5.010;
 use DBI;
@@ -62,9 +62,22 @@ $fields{'domain_admins'} = {
 # # # # # # # # # # # # # # # # # 
 # # vpopmail cloning:
 #
-		
-foreach my $domain (@ARGV){
-	&printVdomInfo( &vdominfo($domain) );
+
+my $command;
+if ($ARGV[0] =~ (/^(vuserinfo|vdominfo)$/)){
+	$command = shift(@ARGV);
+}
+given ($command){
+	when (/vuserinfo/){
+		foreach my $user (@ARGV){
+			&printInfo( &vuserinfo($user) );
+		}
+	}
+	when (/vdominfo/){
+		foreach my $domain(@ARGV){
+			&printInfo( &vdominfo($domain) );
+		}
+	}
 }
 
 	
@@ -79,10 +92,15 @@ foreach my $domain (@ARGV){
 sub vdominfo() {
 	my $domain = shift;
 	my $db = &dbConnection;
+	my $userExistsQuery = "select count(*) from $tables{'domain'} where $fields{'domain'}{'domain'} = '$domain'";
+	my $numUsers = ($db->selectrow_array($userExistsQuery))[0];
+	if ($numUsers < 1){
+		print STDERR "Domain doesn't exist\n";
+		exit;
+	}
 	my $usersQuery = "select count(*) from $tables{'mailbox'} where `$fields{'mailbox'}{'username'}` like '%$domain'";
 	my $usersCount = ($db->selectrow_array($usersQuery))[0];
 	my $domainAdminQuery = "select `$fields{'domain_admins'}{'username'}` from `$tables{'domain_admins'}` where `$fields{'domain_admins'}{'domain'}` = '$domain'";
-	print $domainAdminQuery."\n\n";
 	my $domainAdmin = $db->selectrow_array($domainAdminQuery);
 
 	my $domainInfoQuery = "select $fields{'domain'}{'aliases'}, $fields{'domain'}{'mailboxes'}, $fields{'domain'}{'maxquota'}, $fields{'domain'}{'quota'}, $fields{'domain'}{'transport'}, $fields{'domain'}{'backupmx'}, $fields{'domain'}{'created'}, $fields{'domain'}{'modified'}, $fields{'domain'}{'active'}";
@@ -92,7 +110,7 @@ sub vdominfo() {
 	$$domainInfo{'_adminList'} = $domainAdmin;
 	return $domainInfo;
 }
-sub printVdomInfo(){
+sub printInfo(){
 	## This needs to be sorted properly:
 	my %info =%{(shift)};
 	my $key;
@@ -110,8 +128,13 @@ sub printVdomInfo(){
 	}
 }
 
-#sub vuserinfo() {
-
+sub vuserinfo() {
+	my $user = shift;
+	my $db = &dbConnection;
+	my $userinfoQuery = "select * from `$tables{'mailbox'}` where `$fields{'mailbox'}{'username'}` = '$user'";
+	my $userinfo = $db->selectrow_hashref($userinfoQuery);
+	return $userinfo;
+}
 
 
 # # # # # # # # # # # # # # # # # 
