@@ -7,12 +7,13 @@ use DBI;
 package Vpostmail;
 sub new() {
 	my $class = shift;
-	my $domain = shift;
 	my $self = {};
 	bless($self,$class);
-	$self->{_domain} = $domain;
+#	$self->{_domain};
 	$self->{dbi} = &_dbConnection('/etc/postfix/main.cf');
 	$self->{configFiles}->{'postfix'} = '/etc/postfix/main.cf';
+	$self->{tables} = &_tables;
+	$self->{fields} = &_fields;
 	return $self;
 }
 
@@ -25,7 +26,7 @@ sub setDomain(){
 	my $self = shift;
 	my $domain = shift;
 	$self->{_domain} = $domain;
-	return $self->{domain};
+	return $self->{_domain};
 }
 
 sub getUser(){
@@ -55,12 +56,13 @@ sub numUsers(){
 	my $self = shift;
 	my $query;
 	if ($self->{_domain}){
-		$query = "select count(*) from `alias` where domain = \'$self->{_domain}\'"
+		 $query = "select count(*) from `alias` where domain = \'$self->{_domain}\'"
 	}else{
 		$query = "select count(*) from `alias`";
 	}
 	my $numUsers = ($self->{dbi}->selectrow_array($query))[0];
 	return $numUsers;
+	return $query;
 }
 
 sub listDomains(){
@@ -76,6 +78,31 @@ sub listDomains(){
 	return @domains;
 }
 
+sub listUsers(){
+	my $self = shift;
+	my $query;
+	if ($self->{_domain}){
+		$query = "select address from alias where domain = \'$self->{_domain}\'";
+	}else{
+		$query = "select address from alias";
+	}
+	my $sth = $self->{dbi}->prepare($query);
+	$sth->execute;
+	my @users;
+	while(my @row = $sth->fetchrow_array()){
+		push(@users, $row[0]);
+	}
+	return @users;
+
+
+}
+
+sub getUserInfo(){
+	my $self = shift;
+	$self->_user = shift if(!$self->{_user});
+	my $user = $self->{_user};
+	my %userinfo;
+}
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
  # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
