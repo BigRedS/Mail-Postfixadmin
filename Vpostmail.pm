@@ -29,6 +29,12 @@ sub setDomain(){
 	return $self->{_domain};
 }
 
+sub unsetDomain(){
+	my $self = shift;
+	$self->{_domain} = undef;
+	return $self->{_domain}
+}
+
 sub getUser(){
 	my $self = shift;
 	return $self->{_user};	
