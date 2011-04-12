@@ -9,16 +9,16 @@ sub new() {
 	my $class = shift;
 	my $self = {};
 	bless($self,$class);
-#	$self->{_domain};
 	$self->{dbi} = &_dbConnection('/etc/postfix/main.cf');
 	$self->{configFiles}->{'postfix'} = '/etc/postfix/main.cf';
+
 	my %_tables = &_tables;
 	$self->{tables} = \%_tables;
+
 	my %_fields = &_fields;
 	$self->{fields} = \%_fields;
-	return $self;
 
-	print Data::Dumper::Dumper(%_fields);
+	return $self;
 }
 
 sub getTables(){
@@ -48,6 +48,7 @@ sub getUser(){
 	my $self = shift;
 	return $self->{_user};	
 }
+
 sub setUser(){
 	my $self = shift;
 	my $username = shift;
@@ -112,15 +113,68 @@ sub listUsers(){
 
 }
 
+sub domainExists(){
+	my $self = shift;
+	my $domain;
+	if($self->{_domain}){
+		$domain = $self->{domain}
+	}else{
+		$domain = shift;
+	}
+	my $query = "select count(*) from $self->{tables}->{domain} where $self->{fields}->{domain}->{domain} = \'$domain\'";
+	my $sth = $self->{dbi}->prepare($query);
+	$sth->execute;
+	my $count = ($sth->fetchrow_array())[0];
+	return $count
+}
+
+sub userExists(){
+	my $self = shift;
+	my $user;
+	if($self->{_user}){
+		$user = $self->{user}
+	}else{
+		$user = shift;
+	}
+	my $query = "select count(*) from $self->{tables}->{mailbox} where $self->{fields}->{mailbox}->{username} = \'$user\'";
+	my $sth = $self->{dbi}->prepare($query);
+	$sth->execute;
+	my $count = ($sth->fetchrow_array())[0];
+	return $count
+}
+
 sub getUserInfo(){
 	my $self = shift;
 	$self->{_user} = shift if(!$self->{_user});
 	my $user = $self->{_user};
 	my %userinfo;
-	my $query = "select * from `$self->{tables}->{mailbox}` where `$self->{fields}->{mailbox}{username}` = '$user'";
+	my $query = "select * from `$self->{tables}->{mailbox}` where $self->{fields}->{mailbox}->{username} = '$user'";
 	my $userinfo = $self->{dbi}->selectrow_hashref($query);
-	my %return = %$userinfo;
+
+
+	# we want to return a hash using the names of the fields we use internally
+	# in pursuit of consistency of output, but we'll be given them as named
+	# in the db here. We do, however, have a hash defining these. Here, we create
+	# a new hash, effectively renaming the keys in the hash returned by DBI with 
+	# those found by looking up in the $self->{fields}->{mailbox} 
+	my %return;
+	my %mailboxHash = %{$self->{fields}->{mailbox}};
+	my ($k,$v);
+	while( ($k,$v) = each( %{$self->{fields}->{mailbox}})){
+		my $myname = $k;
+		my $theirname = $v;
+		my $info = $$userinfo{$theirname};
+		$return{$myname} = $info;
+	}
+
 	return %return;
+}
+
+sub getDomainInfo(){
+	my $self = shift;
+	$self->{_domain} = shift if(!$self->{_domain});
+	my $user = $self->{_domain};
+	my %dominfo;
 }
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -207,8 +261,16 @@ sub _fields(){
 	                        'active'        => 'active'
 	};
 	$fields{'mailbox'} = { 
-	                        'mailbox'       => 'mailbox',
-	                        'username'      => 'username'
+	                        'username'      => 'username',
+				'password'	=> 'password',
+				'name'		=> 'name',
+				'maildir'	=> 'maildir',
+				'quota'		=> 'quota',
+				'local_part'	=> 'local_part',
+				'domain'	=> 'domain',
+				'created'	=> 'created',
+				'modified'	=> 'modified',
+				'active'	=> 'active'
 	};
 	$fields{'domain_admins'} = {
 	                        'domain'        => 'domain',

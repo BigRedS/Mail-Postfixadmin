@@ -23,6 +23,9 @@ foreach(@users){
 	print "\t$_\n";
 }
 
+print "Check avi.co exists: ";
+say $d->domainExists("avi.co");
+
 print "Set domain to avi.co.\n";
 $d->setDomain('avi.co');
 
@@ -35,11 +38,15 @@ foreach(@users){
 	print "\t$_\n";
 }
 
-print "User info for avi@avi.co";
-my %userinfo = $d->getUserInfo('avi@avi.co');
+print "Check whether user $ARGV[0] exists:";
+say $d->userExists($ARGV[0]);
+
+print "User info for $ARGV[0]";
+my %userinfo = $d->getUserInfo('$ARGV[0]');
 foreach(keys(%userinfo)){
 	print"$_=>$userinfo{$_}\n";
 }
+
 
 print "Unset domain from avi.co.\n";
 $d->unsetDomain();
