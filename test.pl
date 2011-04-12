@@ -23,9 +23,6 @@ foreach(@users){
 	print "\t$_\n";
 }
 
-
-exit 0;
-
 print "Set domain to avi.co.\n";
 $d->setDomain('avi.co');
 
@@ -36,6 +33,12 @@ print "Users on domain:\n";
 my @users = $d->listUsers();
 foreach(@users){
 	print "\t$_\n";
+}
+
+print "User info for avi@avi.co";
+my %userinfo = $d->getUserInfo('avi@avi.co');
+foreach(keys(%userinfo)){
+	print"$_=>$userinfo{$_}\n";
 }
 
 print "Unset domain from avi.co.\n";

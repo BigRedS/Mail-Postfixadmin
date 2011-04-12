@@ -102,7 +102,6 @@ sub listUsers(){
 		$query = "select $self->{fields}->{alias}->{address} from $self->{tables}->{alias}";
 	}
 	my $sth = $self->{dbi}->prepare($query);
-	print "[[$query]]";
 	$sth->execute;
 	my @users;
 	while(my @row = $sth->fetchrow_array()){
@@ -115,9 +114,13 @@ sub listUsers(){
 
 sub getUserInfo(){
 	my $self = shift;
-	$self->_user = shift if(!$self->{_user});
+	$self->{_user} = shift if(!$self->{_user});
 	my $user = $self->{_user};
 	my %userinfo;
+	my $query = "select * from `$self->{tables}->{mailbox}` where `$self->{fields}->{mailbox}{username}` = '$user'";
+	my $userinfo = $self->{dbi}->selectrow_hashref($query);
+	my %return = %$userinfo;
+	return %return;
 }
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -188,7 +191,8 @@ sub _fields(){
 	                        'description'   => 'description'
 	};
 	$fields{'alias'} = {
-				'address'	=> 'address'
+				'address'	=> 'address',
+				'domain'	=> 'domain'
 	};
 	$fields{'domain'} = { 
 	                        'domain'        => 'domain',
