@@ -24,6 +24,7 @@ foreach(@users){
 }
 
 
+exit 0;
 
 print "Set domain to avi.co.\n";
 $d->setDomain('avi.co');

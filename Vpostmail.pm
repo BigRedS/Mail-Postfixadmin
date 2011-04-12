@@ -3,7 +3,7 @@
 use strict;
 use 5.010;
 use DBI;
-
+use Data::Dumper;
 package Vpostmail;
 sub new() {
 	my $class = shift;
@@ -12,9 +12,18 @@ sub new() {
 #	$self->{_domain};
 	$self->{dbi} = &_dbConnection('/etc/postfix/main.cf');
 	$self->{configFiles}->{'postfix'} = '/etc/postfix/main.cf';
-	$self->{tables} = &_tables;
-	$self->{fields} = &_fields;
+	my %_tables = &_tables;
+	$self->{tables} = \%_tables;
+	my %_fields = &_fields;
+	$self->{fields} = \%_fields;
 	return $self;
+
+	print Data::Dumper::Dumper(%_fields);
+}
+
+sub getTables(){
+	my $self = shift;
+	return $self->{tables}
 }
 
 sub getDomain(){
@@ -51,7 +60,7 @@ sub setUser(){
 
 sub numDomains(){
 	my $self = shift;
-	my $query = "select count(*) from domain";
+	my $query = "select count(*) from $self->{tables}->{domain}";
 	my $numDomains = ($self->{dbi}->selectrow_array($query))[0];
 	$numDomains--;	# since there's an 'ALL' domain in the db
 	$self->{_numDomains} = $numDomains;
@@ -62,9 +71,9 @@ sub numUsers(){
 	my $self = shift;
 	my $query;
 	if ($self->{_domain}){
-		 $query = "select count(*) from `alias` where domain = \'$self->{_domain}\'"
+		 $query = "select count(*) from `$self->{tables}->{alias}` where $self->{fields}->{alias}->{domain} = \'$self->{_domain}\'"
 	}else{
-		$query = "select count(*) from `alias`";
+		$query = "select count(*) from `$self->{tables}->{alias}`";
 	}
 	my $numUsers = ($self->{dbi}->selectrow_array($query))[0];
 	return $numUsers;
@@ -74,7 +83,7 @@ sub numUsers(){
 sub listDomains(){
 	my $self = shift;
 	my $query;
-	my $query = "select domain from domain";
+	my $query = "select domain from $self->{tables}->{domain}";
 	my $sth = $self->{dbi}->prepare($query);
 	$sth->execute;
 	my @domains;
@@ -88,11 +97,12 @@ sub listUsers(){
 	my $self = shift;
 	my $query;
 	if ($self->{_domain}){
-		$query = "select address from alias where domain = \'$self->{_domain}\'";
+		$query = "select $self->{fields}->{alias}->{address} from $self->{tables}->{alias} where $self->{fields}->{alias}->{domain} = \'$self->{_domain}\'";
 	}else{
-		$query = "select address from alias";
+		$query = "select $self->{fields}->{alias}->{address} from $self->{tables}->{alias}";
 	}
 	my $sth = $self->{dbi}->prepare($query);
+	print "[[$query]]";
 	$sth->execute;
 	my @users;
 	while(my @row = $sth->fetchrow_array()){
@@ -177,6 +187,9 @@ sub _fields(){
 	                        'domain'        => 'domain',
 	                        'description'   => 'description'
 	};
+	$fields{'alias'} = {
+				'address'	=> 'address'
+	};
 	$fields{'domain'} = { 
 	                        'domain'        => 'domain',
 	                        'aliases'       => 'aliases',
@@ -197,6 +210,7 @@ sub _fields(){
 	                        'domain'        => 'domain',
 	                        'username'      => 'username'
 	};
+#	print Data::Dumper::Dumper(%fields);
 	return %fields;
 }
 
