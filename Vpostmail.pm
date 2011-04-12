@@ -145,8 +145,12 @@ sub userExists(){
 
 sub getUserInfo(){
 	my $self = shift;
-	$self->{_user} = shift if(!$self->{_user});
-	my $user = $self->{_user};
+	my $user;
+	if($self->{_user}){
+		$user = $self->{_user}
+	}else{
+		$user = shift;
+	}
 	my %userinfo;
 	my $query = "select * from `$self->{tables}->{mailbox}` where $self->{fields}->{mailbox}->{username} = '$user'";
 	my $userinfo = $self->{dbi}->selectrow_hashref($query);
@@ -170,12 +174,6 @@ sub getUserInfo(){
 	return %return;
 }
 
-sub getDomainInfo(){
-	my $self = shift;
-	$self->{_domain} = shift if(!$self->{_domain});
-	my $user = $self->{_domain};
-	my %dominfo;
-}
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
  # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
