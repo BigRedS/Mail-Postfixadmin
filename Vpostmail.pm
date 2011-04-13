@@ -71,8 +71,13 @@ sub numDomains(){
 sub numUsers(){
 	my $self = shift;
 	my $query;
-	if ($self->{_domain}){
-		 $query = "select count(*) from `$self->{tables}->{alias}` where $self->{fields}->{alias}->{domain} = \'$self->{_domain}\'"
+	my $domain = shift;
+	if(!$domain){
+		$domain = $self->{_domain}
+	}
+
+	if ($domain){
+		$query = "select count(*) from `$self->{tables}->{alias}` where $self->{fields}->{alias}->{domain} = \'$self->{_domain}\'"
 	}else{
 		$query = "select count(*) from `$self->{tables}->{alias}`";
 	}
