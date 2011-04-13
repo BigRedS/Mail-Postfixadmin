@@ -42,7 +42,7 @@ print "Check whether user $ARGV[0] exists:";
 say $d->userExists($ARGV[0]);
 
 print "User info for $ARGV[0]";
-my %userinfo = $d->getUserInfo('$ARGV[0]');
+my %userinfo = $d->getUserInfo($ARGV[0]);
 foreach(keys(%userinfo)){
 	print"$_=>$userinfo{$_}\n";
 }
