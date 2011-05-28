@@ -4,6 +4,10 @@ use strict;
 use 5.010;
 use DBI;
 use Data::Dumper;
+use Crypt::PasswdMD5;	# libcrypt-passwdmd5-perl
+
+##Todo: detect & support different password hashes
+
 package Vpostmail;
 sub new() {
 	my $class = shift;
@@ -122,7 +126,7 @@ sub domainExists(){
 	my $self = shift;
 	my $domain;
 	if($self->{_domain}){
-		$domain = $self->{domain}
+		$domain = $self->{_domain}
 	}else{
 		$domain = shift;
 	}
@@ -152,7 +156,7 @@ sub getUserInfo(){
 	my $self = shift;
 	my $user;
 	if($self->{_user}){
-		$user = $self->{_user}
+		$user = $self->{_user};
 	}else{
 		$user = shift;
 	}
@@ -179,6 +183,166 @@ sub getUserInfo(){
 	return %return;
 }
 
+sub getDomainInfo(){
+	my $self = shift;
+	my $domain;
+	if($self->{_domain}){
+		$domain = $self->{_domain};
+	}else{
+		$domain = shift;
+	}
+	my %domiaininfo;
+	my $query = "select * from `$self->{tables}->{domain}` where $self->{fields}->{domain}->{domain} = '$domain'";
+	my $domaininfo = $self->{dbi}->selectrow_hashref($query);
+
+	
+	# This is exactly the same data acrobatics as getUserInfo() above, to get consistent
+	# output:
+	my %return;
+	my %domainhash = %{$self->{fields}->{domain}};
+	my ($k,$v);
+	while ( ($k,$v) = each ( %{$self->{fields}->{domain}} ) ){
+		my $myname = $k;
+		my $theirname = $v;
+		my $info = $$domaininfo{$theirname};
+		$return{$myname} = $info;
+	}
+	$return{dominfo_query}=$query;
+
+	$query = "select username from `$self->{tables}->{mailbox}` where $self->{fields}->{mailbox}->{domain} = '$domain'";
+
+	my $sth = $self->{dbi}->prepare($query);
+	$sth->execute;
+	my @mailboxes;
+	while (my @rows = $sth->fetchrow()){
+		push(@mailboxes,$rows[0]);
+	}
+	
+	$return{mailboxes} = \@mailboxes;
+	$return{num_mailboxes} = scalar @mailboxes;
+	$return{mailbox_query}=$query;
+	
+	return %return;
+}
+
+sub cryptPassword(){
+	my $self = shift;
+	my $password = shift;
+	my $cryptedPassword = Crypt::PasswdMD5::unix_md5_crypt($password);
+	return $cryptedPassword;
+}
+
+sub changePassword(){
+	my $self = shift;
+	my $user = shift;
+	my $password = shift;
+
+	
+	my $cryptedPassword = $self->cryptPassword($password);
+
+	my $query = "update `$self->{tables}->{mailbox}` set `$self->{fields}->{mailbox}->{password}`=? where `$self->{fields}->{mailbox}->{username}`='$user'";
+
+	my $sth = $self->{dbi}->prepare($query);
+	$sth->execute($cryptedPassword);
+	return $cryptedPassword;
+}
+
+sub addDomain(){
+	my $self = shift;
+	my %options = @_;
+	my $fields;
+	my $values;
+	$options{modified} = $self->_mysqlNow;
+	$options{created} = $self->_mysqlNow;
+	foreach(keys(%options)){
+		$fields.= $self->{fields}->{domain}->{$_}.", ";
+		$values.= "'$options{$_}', ";;
+	}
+	$fields =~ s/, $//;
+	$values =~ s/, $//;
+	my $query = "insert into `$self->{tables}->{domain}` ";
+	$query.= " ( $fields ) values ( $values )";
+	my $sth = $self->{dbi}->prepare($query);
+	$sth->execute();	
+}
+
+=item adduser()
+	Expects to be passed a hash of options. Allowed ones are:
+		userame		the login username
+		password_plain	plain text password
+		password_crypt  already crypted password
+		name		real name of the associated human
+		maildir		path to the maildir relative to the root configured in Dovecot/Postfix
+		quota		max mailbox size
+		local_part	the left hand side of the address
+		domain		the right hand side of the address
+		created		creation date timestamp
+		modified	last modified timestamp
+		active		whether or not the domain is to be used. 1=active, 0=inactive
+	The only necessary one is 'username'.
+	
+	If both password_plain and password_crypt are passed, password_crypt will be used. If only password_plain is passed it will be crypted with
+	cryptPasswd()
+	
+	Defaults are mostly sane where values aren't explicitly passed:
+	  * password and name both default to null
+	  * maildir is the domain with a trailing slash
+	  * quota adheres to MySQL's default (which is normally zero for infinite)
+	  * local_part is the part to the left of the '@' in username
+	  * domain is the part after the '@' of the username
+	  * created is now
+	  * modified is now
+	  * active adhere's not MySQL's default (which is normally '1')
+
+	These are only set if they fail an exists() test; if undef is passed, it will not be clobbered - null will be written to MySQL and it will
+	take care of any defaults.
+
+=cut
+
+sub addUser(){
+	my $self = shift;
+	my %opts = @_;
+	my $fields;
+	my $values;
+
+	if($opts{password_crypt}){
+		$opts{password} = $opts{password_crypt};
+	}elsif($opts{password_clear}){
+		$opts{password} = $self->cryptPassword($opts{password_clear});
+	}
+
+	unless(exists $opts{maildir}){
+		$opts{maildir} = $opts{username}."/";
+	}
+	unless(exists $opts{local_part}){
+		if($opts{username} =~ /^(.+)\@/){
+			$opts{local_part} = $1;
+		}
+	}
+	unless(exists $opts{domain}){
+		if($opts{username} =~ /\@(.+)$/){
+			$opts{domain} = $1;
+		}
+	}
+	unless(exists $opts{created}){
+		$opts{created} = $self->_mysqlNow;
+	}
+	unless(exists $opts{modified}){
+		$opts{modified} = $self->_mysqlNow;
+	}
+	foreach(keys(%opts)){
+		unless( /_(clear|cryp)$/){
+			$fields.= $self->{fields}->{mailbox}->{$_}.", ";
+			$values.= "'$opts{$_}', ";
+		}
+	}
+	$values =~ s/, $//;
+	$fields =~ s/, $//;
+	my $query = "insert into `$self->{tables}->{mailbox}` ";
+	$query.= " ( $fields ) values ( $values )";
+	my $sth = $self->{dbi}->prepare($query);
+	$sth->execute();	
+}
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
  # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -253,6 +417,7 @@ sub _fields(){
 	};
 	$fields{'domain'} = { 
 	                        'domain'        => 'domain',
+				'description'	=> 'description',
 	                        'aliases'       => 'aliases',
 	                        'mailboxes'     => 'mailboxes',
 	                        'maxquota'      => 'maxquota',
@@ -279,8 +444,15 @@ sub _fields(){
 	                        'domain'        => 'domain',
 	                        'username'      => 'username'
 	};
-#	print Data::Dumper::Dumper(%fields);
 	return %fields;
+}
+
+sub _mysqlNow() {
+	
+	my ($y,$m,$d,$hr,$mi,$se)=(localtime(time))[5,4,3,2,1,0];
+	my $date = $y + 1900 ."-".sprintf("%02d",$m)."-$d";
+	my $time = "$hr:$mi:$se";
+	return "$date $time";
 }
 
 1
