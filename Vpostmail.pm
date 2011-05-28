@@ -15,20 +15,54 @@ sub new() {
 	bless($self,$class);
 	$self->{dbi} = &_dbConnection('/etc/postfix/main.cf');
 	$self->{configFiles}->{'postfix'} = '/etc/postfix/main.cf';
-
 	my %_tables = &_tables;
 	$self->{tables} = \%_tables;
-
 	my %_fields = &_fields;
 	$self->{fields} = \%_fields;
-
 	return $self;
 }
+
+=item getTables() and setTables(), and getFields() and setFields()
+
+Internally, the db schema is stored in two hashes. 
+getTables() returns a hash where the keys 
+are the values used internally to refer to the tables, and the values are the names of the tables in the SQL. 
+getFields returns a hash of hashes. The 'top' hash has as keys the internal names for the tables (as found in 
+getTables()), with the values being hashes representing the tables. Here, the key is the name as used internally, 
+and the value the names of those fields in the SQL.
+
+It's only prepopulated with those values that the module is written to use. 
+
+=cut
 
 sub getTables(){
 	my $self = shift;
 	return $self->{tables}
 }
+sub getFields(){
+	my $self = shift;
+	return $self->{fields}
+}
+
+sub setTables(){
+	my $self = shift;
+	$self->{tables} = @_;
+	return $self->{tables};
+}
+
+sub setFields(){
+	my $self = shift;
+	$self->{fields} = @_;
+	return $self->{fields};
+}
+
+
+
+=item getDomain, setDomain, unsetDomain
+
+These are mostly useless and can be safely ignored
+
+=cut
 
 sub getDomain(){
 	my $self = shift;
@@ -63,6 +97,14 @@ sub setUser(){
 	return $self->{_user};
 }
 
+
+=item numdomains()
+
+Returns the number of domains configured on the server. Will, one day, accept a regular expression as an argument
+and only return the number of domins that match that pattern.
+=cut
+
+##Todo: Accept a regex to match
 sub numDomains(){
 	my $self = shift;
 	my $query = "select count(*) from $self->{tables}->{domain}";
@@ -72,13 +114,18 @@ sub numDomains(){
 	return $self->{_numDomains};
 }
 
+=item numUsers()
+Returns the number of configured users. If a domain is set (say, with setDomain() ) it will only return users 
+configured on that domain. If not, it will return all the users.
+
+If passed a regex, it should (but doesn't yet) only return the part of that list that matches the regex.
+
+=cut
+##Todo: make the above true
 sub numUsers(){
 	my $self = shift;
 	my $query;
-	my $domain = shift;
-	if(!$domain){
-		$domain = $self->{_domain}
-	}
+	$domain = $self->{_domain}
 
 	if ($domain){
 		$query = "select count(*) from `$self->{tables}->{alias}` where $self->{fields}->{alias}->{domain} = \'$self->{_domain}\'"
@@ -90,6 +137,13 @@ sub numUsers(){
 	return $query;
 }
 
+=item listDomains and listUsers
+
+Work in the same way as their count counterparts above, but return the list rather than the count.
+
+=cut
+
+##Todo: make the above line true
 sub listDomains(){
 	my $self = shift;
 	my $query;
@@ -122,14 +176,17 @@ sub listUsers(){
 
 }
 
+=item domainExists and userExists
+
+Checks for the existence of a user or a domain. Should be set by the setUser or setDomain. At some point, it'll
+accept a hash of things to check for, but I need to work out how that should work before it will.
+
+=cut
+
 sub domainExists(){
 	my $self = shift;
 	my $domain;
-	if($self->{_domain}){
-		$domain = $self->{_domain}
-	}else{
-		$domain = shift;
-	}
+	$domain = $self->{_domain};
 	my $query = "select count(*) from $self->{tables}->{domain} where $self->{fields}->{domain}->{domain} = \'$domain\'";
 	my $sth = $self->{dbi}->prepare($query);
 	$sth->execute;
@@ -140,11 +197,7 @@ sub domainExists(){
 sub userExists(){
 	my $self = shift;
 	my $user;
-	if($self->{_user}){
-		$user = $self->{user}
-	}else{
-		$user = shift;
-	}
+	$user = $self->{user};
 	my $query = "select count(*) from $self->{tables}->{mailbox} where $self->{fields}->{mailbox}->{username} = \'$user\'";
 	my $sth = $self->{dbi}->prepare($query);
 	$sth->execute;
@@ -152,14 +205,22 @@ sub userExists(){
 	return $count
 }
 
+
+
+
+=item getUserInfo
+
+Returns a hash containing info about the user. The keys are the same as the internally-used names for the fields
+in the SQL (as you can find from getFields and getTables).
+
+User should be set by setUser.
+
+=cut
+
 sub getUserInfo(){
 	my $self = shift;
 	my $user;
-	if($self->{_user}){
-		$user = $self->{_user};
-	}else{
-		$user = shift;
-	}
+	$user = $self->{_user};
 	my %userinfo;
 	my $query = "select * from `$self->{tables}->{mailbox}` where $self->{fields}->{mailbox}->{username} = '$user'";
 	my $userinfo = $self->{dbi}->selectrow_hashref($query);
@@ -182,6 +243,17 @@ sub getUserInfo(){
 
 	return %return;
 }
+
+
+
+=item getDomainInfo
+
+Returns a hash containing info about the domain. The keys are the same as the internally-used names for the fields
+in the SQL (as you can find from getFields and getTables).
+
+Domain should be set by setDomain.
+
+=cut
 
 sub getDomainInfo(){
 	my $self = shift;
@@ -225,6 +297,19 @@ sub getDomainInfo(){
 	return %return;
 }
 
+
+
+=item cryptPassword and changePassword
+
+changePassword changes the password of a user. The user should be set with setUser and the cleartext password 
+passed as an argument. It returns the encrypted password as written to the DB. 
+The salt is picked at pseudo-random; successive runs will (should) produce different results.
+
+cryptPassword probably has no real use. It should let you specify a salt for the password, but doesn't yet. It 
+expects a cleartext password as an argument, and returns the crypted sort. 
+
+=cut
+
 sub cryptPassword(){
 	my $self = shift;
 	my $password = shift;
@@ -234,7 +319,7 @@ sub cryptPassword(){
 
 sub changePassword(){
 	my $self = shift;
-	my $user = shift;
+	my $user = $self->user;
 	my $password = shift;
 
 	
@@ -246,6 +331,11 @@ sub changePassword(){
 	$sth->execute($cryptedPassword);
 	return $cryptedPassword;
 }
+
+=item addDomain
+	Should work like addUser but doesn't. Accepts a hash of setings, but doesn't really care what they are.
+
+=cut
 
 sub addDomain(){
 	my $self = shift;
@@ -281,21 +371,21 @@ sub addDomain(){
 		active		whether or not the domain is to be used. 1=active, 0=inactive
 	The only necessary one is 'username'.
 	
-	If both password_plain and password_crypt are passed, password_crypt will be used. If only password_plain is passed it will be crypted with
-	cryptPasswd()
+	If both password_plain and password_crypt are passed, password_crypt will be used. If only password_plain 
+	is passed it will be crypted with cryptPasswd()
 	
 	Defaults are mostly sane where values aren't explicitly passed:
-	  * password and name both default to null
-	  * maildir is the domain with a trailing slash
-	  * quota adheres to MySQL's default (which is normally zero for infinite)
-	  * local_part is the part to the left of the '@' in username
+	  * password and name each default to null
+	  * maildir is created by appending a '/' to the username
+	  * quota adheres to MySQL's default (which is normally zero, meaning infinite)
+	  * local_part is the part to the left of the '@' in the username
 	  * domain is the part after the '@' of the username
-	  * created is now
-	  * modified is now
-	  * active adhere's not MySQL's default (which is normally '1')
+	  * created is set to now
+	  * modified is set to now
+	  * active adheres to MySQL's default (which is normally '1')
 
-	These are only set if they fail an exists() test; if undef is passed, it will not be clobbered - null will be written to MySQL and it will
-	take care of any defaults.
+	These are only set if they fail an exists() test; if undef is passed, it will not be clobbered - null 
+	will be written to MySQL and it will take care of any defaults.
 
 =cut
 
