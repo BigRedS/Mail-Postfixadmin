@@ -1,0 +1,36 @@
+vpostmail
+=========
+
+Vpostmail is an attempt to provide the same command line tools as provided in
+Vpopmail, but for a Postfix/Dovecot/MySQL environment. Alternatively, it's an
+attempt to provide a command-line version of postfixadmin.
+
+Vpostmail.pm is (will be) a module providing the functions, and once that's done
+I'll write some scripts:
+
+vadddomain domain.name
+  Create a domain with default settings
+
+vdeldomain domain.name
+  Delete a domain
+
+vmoddomain [options] domain.name
+  Configure a domain, by passing options to it
+
+vdominfo domain.name
+  Get information about a domain
+
+vadduser user@domain.name password
+  Create a user, setting the password if supplied
+
+vdeluser user@domain.name
+  Delete a user
+
+vpasswd user@domain.name password
+  Set a user's password, which may be supplied as an argument, else prompt for it
+
+vuserinfo user@domain.name
+  Get information about a user
+
+vmodduser [options] domain.name
+  Configure a user by passing options to it
