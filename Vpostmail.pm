@@ -8,6 +8,26 @@ use Crypt::PasswdMD5;	# libcrypt-passwdmd5-perl
 
 ##Todo: detect & support different password hashes
 
+=head1 Vpostmail.pm
+
+A module for interfering with a Postfix/Dovecot/MySQL system
+
+=head1 Synopsis
+
+	my $d = Vpostmail->new();
+	$d->setDomain("example.org");
+	$d->createDomain();
+	$d->setUser("foo@example.org");
+	$d->createUser;
+
+=head1 Description
+
+Vpostmail is an attempt to provide the tools for making same command line tools as provided in Vpopmail, but for a 
+Postfix/Dovecot/MySQL environment. Alternatively, it's an attempt to provide a command-line version of postfixadmin.
+
+
+=cut
+
 package Vpostmail;
 sub new() {
 	my $class = shift;
@@ -333,7 +353,8 @@ sub changePassword(){
 }
 
 =item addDomain
-	Should work like addUser but doesn't. Accepts a hash of setings, but doesn't really care what they are.
+
+Should work like addUser but doesn't. Accepts a hash of setings, but doesn't really care what they are.
 
 =cut
 
@@ -357,35 +378,46 @@ sub addDomain(){
 }
 
 =item adduser()
-	Expects to be passed a hash of options. Allowed ones are:
-		userame		the login username
-		password_plain	plain text password
-		password_crypt  already crypted password
-		name		real name of the associated human
-		maildir		path to the maildir relative to the root configured in Dovecot/Postfix
-		quota		max mailbox size
-		local_part	the left hand side of the address
-		domain		the right hand side of the address
-		created		creation date timestamp
-		modified	last modified timestamp
-		active		whether or not the domain is to be used. 1=active, 0=inactive
-	The only necessary one is 'username'.
-	
-	If both password_plain and password_crypt are passed, password_crypt will be used. If only password_plain 
-	is passed it will be crypted with cryptPasswd()
-	
-	Defaults are mostly sane where values aren't explicitly passed:
-	  * password and name each default to null
-	  * maildir is created by appending a '/' to the username
-	  * quota adheres to MySQL's default (which is normally zero, meaning infinite)
-	  * local_part is the part to the left of the '@' in the username
-	  * domain is the part after the '@' of the username
-	  * created is set to now
-	  * modified is set to now
-	  * active adheres to MySQL's default (which is normally '1')
 
-	These are only set if they fail an exists() test; if undef is passed, it will not be clobbered - null 
-	will be written to MySQL and it will take care of any defaults.
+Expects to be passed a hash of options. Allowed ones are:
+
+ userame		the login username
+ password_plain		plain text password
+ password_crypt 	already crypted password
+ name			real name of the associated human
+ maildir		path to the maildir relative to the root configured in Dovecot/Postfix
+ quota			max mailbox size
+ local_part		the left hand side of the address
+ domain			the right hand side of the address
+ created		creation date timestamp
+ modified		last modified timestamp
+ active			whether or not the domain is to be used. 1=active, 0=inactive
+
+The only necessary one is 'username'.
+
+If both password_plain and password_crypt are passed, password_crypt will be used. If only password_plain 
+is passed it will be crypted with cryptPasswd()
+
+Defaults are mostly sane where values aren't explicitly passed:
+
+=item  * password and name each default to null
+
+=item  * maildir is created by appending a '/' to the username
+
+=item  * quota adheres to MySQL's default (which is normally zero, meaning infinite)
+
+=item  * local_part is the part to the left of the '@' in the username
+
+=item  * domain is the part after the '@' of the username
+
+=item  * created is set to now
+
+=item  * modified is set to now
+
+=item  * active adheres to MySQL's default (which is normally '1')
+
+These are only set if they fail an exists() test; if undef is passed, it will not be clobbered - null 
+will be written to MySQL and it will take care of any defaults.
 
 =cut
 
