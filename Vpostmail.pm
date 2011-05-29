@@ -3,35 +3,53 @@
 use strict;
 use 5.010;
 use DBI;
-use Data::Dumper;
 use Crypt::PasswdMD5;	# libcrypt-passwdmd5-perl
+use Carp;
 
 ##Todo: detect & support different password hashes
 
 =pod
 
-=head1 Vpostmail.pm
+=head1 NAME
 
-A module for interfering with a Postfix/Dovecot/MySQL system
+Vpostmail - Interferes with a Postfix/Dovecot/MySQL system
 
-=head1 Synopsis
+=head1 SYNOPSIS
+
+	use Vpostmail;
 
 	my $d = Vpostmail->new();
 	$d->setDomain("example.org");
-	$d->createDomain();
+	$d->createDomain(
+		description => 'an example',
+		num_mailboxes => '0'
+	);
+
 	$d->setUser("foo@example.org");
-	$d->createUser;
+	$d->createUser(
+		password_plain => 'password',
+		name => 'alice'
+	);
 
 	my %dominfo = $d->getDomainInfo();
 
+	my %userinfo = $d->getUserInfo();
 
-=head1 Description
+	$d->changePassword('complexpass);
 
-Vpostmail is an attempt to provide a whole bunch of neat functiosn that wrap around the tedious SQL involved
+=head1 REQUIRES
+
+Perl 5.8, perhaps earlier
+Crypt::PasswdMD5 (libcrypt-passwdmd5-perl in Debian)
+
+=head1 DESCRIPTION
+
+Vpostmail is an attempt to provide a bunch of neat functions that wrap around the tedious SQL involved
 in interfering with a Postfix/Dovecot/MySQL virtual mailbox mail system. It can probably be used on others
 so long as the DB schema is similar enough.
 
-It's _very_much_ still in development. All sorts of things will change :)
+It's _very_much_ still in development. All sorts of things will change :) This is currently a todo list as much
+as it is documentation of the module.
 
 =cut
 
@@ -49,26 +67,7 @@ sub new() {
 	return $self;
 }
 
-=pod
-
-=item getTables() and setTables(), and getFields() and setFields()
-
-Internally, the db schema is stored in two hashes. 
-
-%_tables is a hash storing the names of the tables. The keys are the values used internally to refer to the 
-tables, and the values are the names of the tables in the db.
-
-%_fields is a hash of hashes. The 'top' hash has as keys the internal names for the tables (as found in 
-getTables), with the values being hashes representing the tables. Here, the key is the name as used internally, 
-and the value the names of those fields in the SQL.
-
-getFields returns %_fields, getTables %_tables. setFields and setTables resets them to the hash passed as an 
-argument. It does not merge the two hashes.
-
-This is the only way you should be interfering with those hashes.
-
-Since the module does no guesswork as to the db schema (yet), you might need to use these to get it to load 
-yours. Even when it does do that, it might guess wrongly.
+=head1 METHODS
 
 =cut
 
@@ -95,30 +94,48 @@ sub setFields(){
 
 =pod 
 
-=item getDomain() and setDomain(), and getUser() and setUser()
+=head2 Getters and Setters
 
 Anything that operates on a domain or a user will expect the object's user or domain to have already been set with 
-one of these. setUser may either be passed the full username (bob@example.org) or, if a domain is already set, just 
-the left-hand-side (bob). These two are equivalent:
+one of these. The getters and setters are
 
-$d->setDomain('example.org');
-$d->setUser('bob');
+ getUser()
+ getDomain()
+ setUser()
+ setDomain()
 
-$d->setUser('bob@example.org');
+Functions do not, in general, expect to be passed either a user or a domain as an argument, with createDomain() and 
+createUser() acting as notable examples - they will accept either set in the hash of settings they're passed.
 
-Note that this behaviour depends upon the argument to setUser, not only the set-ness of a domain. If no domain is 
-set, then the argument to setUser is always assumed to be the whole username.
-If a domain is set, then if the argument to SetUser contains an '@' it is assumed to be the whole username, else only
-the left hand side. 
+There is also a pair of 'unsetters':
 
-The setters return the value they've set, so these are equivalent:
+ unsetUser()
+ unsetDomain()
+
+The setters will return the value to which they have set the variable; these two are equivalent:
 
   $d->setDomain('example.org');
   print $d->getDomain();
 
   print $d->setDomain('example.org');
 
-in that both will print 'example.org'
+in that both will print 'example.org'. 
+
+=over 4
+
+=item setUser()
+
+setUser may either be passed the full username (bob@example.org) or, if a domain is already set with setDomain(), just
+the left-hand-side (bob). These two are equivalent:
+
+ $d->setDomain('example.org');
+ $d->setUser('bob');
+
+ $d->setUser('bob@example.org');
+
+Note that this behaviour depends upon the argument to setUser, not only the set-ness of a domain. If no domain is 
+set, then the argument to setUser is always assumed to be the whole username.
+If a domain is set, then if the argument to SetUser contains an '@' it is assumed to be the whole username, else only
 
 =cut
 
@@ -151,8 +168,8 @@ sub setUser(){
 
 =item unsetDomain() and unsetUser()
 
-Sets the domain or the user to undef. Returns the previous value of the variable, rather than the set variable,
-as per the setters. So:
+Sets the domain or the user to undef. Returns the previous value of the variable, rather than the new value (which you 
+would get out of the setters):
 
   $d->setDomain('example.org')
   print $d->setDomain(undef);
@@ -180,6 +197,12 @@ sub unsetUser(){
 	$self->{_domain} = undef;
 	return $return;
 }
+
+
+=head2 User and domain information
+
+None of these expect arguments, or do anything with any argument they're supplied. They will, one day, accept a regex 
+as their only argument, having applied the regex sensibly to their normal return values.
 
 =item numDomains()
 
@@ -225,7 +248,7 @@ sub numUsers(){
 
 =item listDomains() and listUsers()
 
-Work in the same way as their count counterparts above, but return the list rather than the count.
+Work in the same way as their count counterparts above, but return a list rather than just how many there are. 
 
 =cut
 
@@ -258,16 +281,13 @@ sub listUsers(){
 		push(@users, $row[0]);
 	}
 	return @users;
-
-
 }
 
 =item domainExists() and userExists()
 
-Checks for the existence of a user or a domain. Accepts no arguments - the user or domain should be set with setUser() or 
-setDomain()
+Check for the existence of a user or a domain.
 
-When it does accept an argument, it will be a hash of search terms, the precise mechanics of which I've yet to decide upon.
+When they do accept an argument, it will be a hash of search terms, the precise mechanics of which I've yet to decide upon.
 
 =cut
 
@@ -279,25 +299,37 @@ sub domainExists(){
 	my $sth = $self->{dbi}->prepare($query);
 	$sth->execute;
 	my $count = ($sth->fetchrow_array())[0];
-	return $count
+
+	if ($count > 0){
+		return 0;
+	}else{
+		return;
+	}
 }
 
 sub userExists(){
 	my $self = shift;
-	my $user;
-	$user = $self->{user};
-	my $query = "select count(*) from $self->{tables}->{mailbox} where $self->{fields}->{mailbox}->{username} = \'$user\'";
+	my $user = $self->{_user};
+	my $query = "select count(*) from $self->{tables}->{mailbox} where $self->{fields}->{mailbox}->{username} = '$user'";
 	my $sth = $self->{dbi}->prepare($query);
 	$sth->execute;
 	my $count = ($sth->fetchrow_array())[0];
-	return $count
+	#return $count
+
+
+	if ($count > 0){
+		return $count;
+	}else{
+		return;
+	}
+
 }
 
 
 =item getUserInfo()
 
 Returns a hash containing info about the user. The keys are the same as the internally-used names for the fields
-in the SQL (as you can find from getFields and getTables).
+in the SQL (as you can find from getFields() and getTables() ).
 
 The hash keys are essentially the same as those found by getFields:
 
@@ -361,10 +393,8 @@ in the SQL (as you can find from getFields and getTables), with a couple of addi
 	modified	last modified date 
 	num_mailboxes   Count of the mailboxes (effectively, the length of the array in mailboxes)
 	created		Creation data
-	dominfo_query   The query used to get the domain info
 	aliases		Alias quota for the domain
 	maxquota	Mailbox quota for teh domain
-	mailbox_query	Query used to get the mailboxes for the domain
 
 
 Domain needs to have been set by setDomain() previously.
@@ -395,7 +425,7 @@ sub getDomainInfo(){
 		my $info = $$domaininfo{$theirname};
 		$return{$myname} = $info;
 	}
-	$return{dominfo_query}=$query;
+#	$return{dominfo_query}=$query;
 
 	$query = "select username from `$self->{tables}->{mailbox}` where $self->{fields}->{mailbox}->{domain} = '$domain'";
 
@@ -408,21 +438,17 @@ sub getDomainInfo(){
 	
 	$return{mailboxes} = \@mailboxes;
 	$return{num_mailboxes} = scalar @mailboxes;
-	$return{mailbox_query}=$query;
+#	$return{mailbox_query}=$query;
 	
 	return %return;
 }
 
+=head2 Passwords
 
+=item cryptPassword()
 
-=item cryptPassword() and changePassword()
-
-changePassword changes the password of a user. The user should be set with setUser and the cleartext password 
-passed as an argument. It returns the encrypted password as written to the DB. 
-The salt is picked at pseudo-random; successive runs will (should) produce different results.
-
-cryptPassword probably has no real use. It should let you specify a salt for the password, but doesn't yet. It 
-expects a cleartext password as an argument, and returns the crypted sort. 
+cryptPassword probably has no real use, except for where other functions use it. It should let you specify a 
+salt for the password, but doesn't yet. It expects a cleartext password as an argument, and returns the crypted sort. 
 
 =cut
 
@@ -433,9 +459,17 @@ sub cryptPassword(){
 	return $cryptedPassword;
 }
 
+=item changePassword() 
+
+changePassword changes the password of a user. The user should be set with setUser and the cleartext password 
+passed as an argument. It returns the encrypted password as written to the DB. 
+The salt is picked at pseudo-random; successive runs will (should) produce different results.
+
+=cut
+
 sub changePassword(){
 	my $self = shift;
-	my $user = $self->user;
+	my $user = $self->{_user};
 	my $password = shift;
 
 	
@@ -448,17 +482,46 @@ sub changePassword(){
 	return $cryptedPassword;
 }
 
-=item addDomain()
+=item changeCryptedPassword()
 
-Should work like addUser but doesn't. Accepts a hash of setings, but doesn't really care what they are.
+changeCryptedPassword operates in exactly the same way as changePassword, but it expects to be passed an already-encrypted 
+password, rather than a clear text one. It does no processing at all of its arguments, just writes it
+into the database.
 
 =cut
 
-sub addDomain(){
+sub changeCryptedPassword(){
+	my $self = shift;
+	my $user = $self->{_user};
+	my $cryptedPassword = shift;
+
+	my $query = "update `$self->{tables}->{mailbox}` set `$self->{fields}->{mailbox}->{password}`=? where `$self->{fields}->{mailbox}->{username}`='$user'";
+
+	my $sth = $self->{dbi}->prepare($query);
+	$sth->execute($cryptedPassword);
+	return $cryptedPassword;
+}
+
+=head2 Creating things
+
+=item createDomain()
+
+Expects to be passed a hash of options, with the keys being the same as those output by getDomainInfo(). None
+are necessary (provided setDomain() has been called). If the 'domain' key is passed, setDomain need not have been 
+called previously.
+
+Defaults are currently exactly what the db sets - no processing is done at all of the input before dumping it into
+the db.
+
+
+=cut
+
+sub createDomain(){
 	my $self = shift;
 	my %options = @_;
 	my $fields;
 	my $values;
+	$options{domain} = $self->{_domain};
 	$options{modified} = $self->_mysqlNow;
 	$options{created} = $self->_mysqlNow;
 	foreach(keys(%options)){
@@ -473,26 +536,14 @@ sub addDomain(){
 	$sth->execute();	
 }
 
-=item adduser()
+=item createUser()
 
-Expects to be passed a hash of options. Allowed ones are:
-
- userame		the login username
- password_plain		plain text password
- password_crypt 	already crypted password
- name			real name of the associated human
- maildir		path to the maildir relative to the root configured in Dovecot/Postfix
- quota			max mailbox size
- local_part		the left hand side of the address
- domain			the right hand side of the address
- created		creation date timestamp
- modified		last modified timestamp
- active			whether or not the domain is to be used. 1=active, 0=inactive
-
-The only necessary one is 'username'.
+Expects to be passed a hash of options, with the keys being the same as those output by getUserInfo(). None
+are necessary (provided setUser() has been set). If the 'username' key is passed, setUser need not have been 
+called previously.
 
 If both password_plain and password_crypt are passed, password_crypt will be used. If only password_plain 
-is passed it will be crypted with cryptPasswd()
+is passed it will be crypted with cryptPasswd() and then inserted.
 
 Defaults are mostly sane where values aren't explicitly passed:
 
@@ -521,11 +572,13 @@ will be written to MySQL and it will take care of any defaults.
 
 =cut
 
-sub addUser(){
+sub createUser(){
 	my $self = shift;
 	my %opts = @_;
 	my $fields;
 	my $values;
+
+	$opts{username} = $self->{_user};
 
 	if($opts{password_crypt}){
 		$opts{password} = $opts{password_crypt};
@@ -558,6 +611,9 @@ sub addUser(){
 			$values.= "'$opts{$_}', ";
 		}
 	}
+	if ($opts{username} eq ''){
+		Carp::croak "No username set. Either pass it in a hash, or set it with setUser";
+	}
 	$values =~ s/, $//;
 	$fields =~ s/, $//;
 	my $query = "insert into `$self->{tables}->{mailbox}` ";
@@ -566,6 +622,48 @@ sub addUser(){
 	$sth->execute();	
 }
 
+=head2 Deleting things
+
+=item removeUser();
+
+Removes the user set in setUser()
+
+=cut
+
+##Todo: Accept a hash of field=>MySQL regex  with which to define users to delete
+sub removeUser(){
+	my $self = shift;
+	my $username = $self->{_user};
+	if ($username eq ''){;
+		Carp::croak("No user set (you probably need to setUser() ) ");
+	}
+	my $query = "delete from $self->{tables}->{mailbox} where $self->{fields}->{mailbox}->{username} = '$username'";
+	my $sth = $self->{dbi}->prepare($query);
+	$sth->execute();
+}
+
+=item removeDomain()
+
+Removes the domain set in setDomain(), and all of its attached users (using removeUser()).  
+
+=cut
+
+sub removeDomain(){
+	my $self = shift;
+	my $domain = $self->{_domain};
+	if ($domain eq ''){
+		Carp::croak "No domain set - try using setDomain()";
+	}
+	my @users = $self->listUsers();
+	foreach(@users){
+		$self->{_user} = $_;
+		$self->removeUser();
+	}
+	$self->{user} = undef;
+	my $query = "delete from $self->{tables}->{domain} where $self->{fields}->{domain}->{domain} = '$domain'";
+	my $sth = $self->{dbi}->prepare($query);
+	$sth->execute;
+}
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
  # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -608,6 +706,26 @@ sub _dbConnection(){
         return $dbh
 }
 
+=head2 Setting the DB environment
+
+Internally, the db schema is stored in two hashes. 
+
+%_tables is a hash storing the names of the tables. The keys are the values used internally to refer to the 
+tables, and the values are the names of the tables in the db.
+
+%_fields is a hash of hashes. The 'top' hash has as keys the internal names for the tables (as found in 
+getTables), with the values being hashes representing the tables. Here, the key is the name as used internally, 
+and the value the names of those fields in the SQL.
+
+getFields returns %_fields, getTables %_tables. setFields and setTables resets them to the hash passed as an 
+argument. It does not merge the two hashes.
+
+This is the only way you should be interfering with those hashes.
+
+Since the module does no guesswork as to the db schema (yet), you might need to use these to get it to load 
+yours. Even when it does do that, it might guess wrongly.
+
+=cut
 sub _tables(){
 	my %tables = ( 
 	        'admin'         => 'admin',
@@ -678,5 +796,20 @@ sub _mysqlNow() {
 	my $time = "$hr:$mi:$se";
 	return "$date $time";
 }
+
+=head1 CLASS VARIABLES
+
+There aren't any. If you're using class variables you've done something wrong.
+
+=head1 DIAGNOSTICS
+
+There is no error checking and, hence, no error handling. Good luck!
+
+=head1 AUTHOR
+
+Avi Greenbury avi <@> avi.co
+
+=cut
+
 
 1
