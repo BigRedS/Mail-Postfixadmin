@@ -18,24 +18,24 @@ Vpostmail - Interferes with a Postfix/Dovecot/MySQL system
 
 	use Vpostmail;
 
-	my $d = Vpostmail->new();
-	$d->setDomain("example.org");
-	$d->createDomain(
+	my $v = Vpostmail->new();
+	$v->setDomain("example.org");
+	$v->createDomain(
 		description => 'an example',
 		num_mailboxes => '0'
 	);
 
-	$d->setUser("foo@example.org");
-	$d->createUser(
+	$v->setUser("foo@example.org");
+	$v->createUser(
 		password_plain => 'password',
 		name => 'alice'
 	);
 
-	my %dominfo = $d->getDomainInfo();
+	my %dominfo = $v->getDomainInfo();
 
-	my %userinfo = $d->getUserInfo();
+	my %userinfo = $v->getUserInfo();
 
-	$d->changePassword('complexpass);
+	$v->changePassword('complexpass');
 
 =head1 REQUIRES
 
@@ -52,7 +52,7 @@ Vpostmail - Interferes with a Postfix/Dovecot/MySQL system
 =back
 
 Crypt::PasswdMD5 is C<libcyrpt-passwdmd5-perl> in Debian, 
-DBI is C<libdbi-perl in Debian>
+DBI is C<libdbi-perl>
 
 
 =head1 DESCRIPTION
@@ -323,8 +323,6 @@ sub listUsers(){
 Check for the existence of a user or a domain. Returns the amount it found (in anticipation of also serving as a sort-of search)
 if the domain or user does exist, empty otherwise.
 
-When they do accept an argument, it will be a hash of search terms, the precise mechanics of which I've yet to decide upon.
-
 =cut
 
 sub domainExists(){
@@ -377,7 +375,7 @@ The hash keys are essentially the same as those found by getFields:
 	modified	Last modified data
 
 
-User needs to have been set by previously.
+User needs to have been set previously.
 
 The hash is returned even in the eventuality that it is empty. This function does not test for the existence of
 a user, (use C<userExists()> for that).
@@ -637,7 +635,7 @@ On both success and failure, the function will return a hash containing the opti
 you can inspect this to see which defaults were set.
 
 If the domain already exists, this function will not alter it. It wil exit with a return value of 2 (indicating that
-it thinks its job has already been done) and populate C<infostr> with "Domain already exists (<domain>)" In this 
+it thinks its job has already been done) and populate C<infostr> with "User already exists (<user>)" In this 
 instance, you don't get the hash.
 
 =cut
@@ -719,7 +717,7 @@ Removes the user set in C<setUser()>.
 
 Returns 1 on successful removal of a user, 2 if the user didn't exist to start with.
 
-C<infostr> is set to the query run only if the user exists. If the user doesn't exist, no query is run if 
+C<infostr> is set to the query run only if the user exists. If the user doesn't exist, no query is run
 and C<infostr> is set to "user doesn't exist (<user>)";
 
 =cut
@@ -971,21 +969,21 @@ sub _mysqlNow() {
 
 =item errstr
 
-$d->errstr contains the error message of the last action. If it's empty (i.e. ($d->errstr eq '') then it should be safe to assume
+C<$v->errstr> contains the error message of the last action. If it's empty (i.e. C<$v->errstr eq ''>) then it should be safe to assume
 nothing went wrong. Currently, it's only used where the creation or deletion of something appeared to succeed, but the something 
-didn't exist or cease to exist (whichever was expected).
+didn't begin to exist or cease to exist.
 
 =item infostr
 
-$d->infostr is more useful.
-Generally, it contains the SQL queries concatenated by semi-colon used to perform whatever job the function performed, excluding 
-any ancilliary checks. 
+C<$v->infostr> is more useful.
+Generally, it contains the SQL queries used to perform whatever job the function performed, excluding any ancilliary checks. If it
+took more than one SQL query, they're concatenated with semi-colons between them.
 
 It also populated when trying to create something that exists, or delete something that doesn't.
 
 =item dbi
 
-$d->dbi is the dbi object used by the rest of the module, having guessed/set the appropriate credentials.
+C<$v->dbi> is the dbi object used by the rest of the module, having guessed/set the appropriate credentials.
 
 =back
 
