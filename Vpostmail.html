@@ -1,0 +1,439 @@
+<?xml version="1.0" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title>Vpostmail</title>
+<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+<link rev="made" href="mailto:root@localhost" />
+</head>
+
+<body style="background-color: white">
+
+
+<!-- INDEX BEGIN -->
+<div name="index">
+<p><a name="__index__"></a></p>
+
+<ul>
+
+	<li><a href="#name">NAME</a></li>
+	<li><a href="#synopsis">SYNOPSIS</a></li>
+	<li><a href="#requires">REQUIRES</a></li>
+	<li><a href="#description">DESCRIPTION</a></li>
+	<li><a href="#methods">METHODS</a></li>
+	<ul>
+
+		<li><a href="#getters_and_setters">Getters and Setters</a></li>
+		<li><a href="#user_and_domain_information">User and domain information</a></li>
+		<li><a href="#passwords">Passwords</a></li>
+		<li><a href="#creating_things">Creating things</a></li>
+		<li><a href="#deleting_things">Deleting things</a></li>
+		<li><a href="#the_db_schema">The DB schema</a></li>
+	</ul>
+
+	<li><a href="#class_variables">CLASS VARIABLES</a></li>
+	<li><a href="#diagnostics">DIAGNOSTICS</a></li>
+</ul>
+
+<hr name="index" />
+</div>
+<!-- INDEX END -->
+
+<p>
+</p>
+<hr />
+<h1><a name="name">NAME</a></h1>
+<p>Vpostmail - Interferes with a Postfix/Dovecot/MySQL system</p>
+<p>
+</p>
+<hr />
+<h1><a name="synopsis">SYNOPSIS</a></h1>
+<pre>
+        use Vpostmail;</pre>
+<pre>
+        my $v = Vpostmail-&gt;new();
+        $v-&gt;setDomain(&quot;example.org&quot;);
+        $v-&gt;createDomain(
+                description =&gt; 'an example',
+                num_mailboxes =&gt; '0'
+        );</pre>
+<pre>
+        $v-&gt;setUser(&quot;foo@example.org&quot;);
+        $v-&gt;createUser(
+                password_plain =&gt; 'password',
+                name =&gt; 'alice'
+        );</pre>
+<pre>
+        my %dominfo = $v-&gt;getDomainInfo();</pre>
+<pre>
+        my %userinfo = $v-&gt;getUserInfo();</pre>
+<pre>
+        $v-&gt;changePassword('complexpass');</pre>
+<p>
+</p>
+<hr />
+<h1><a name="requires">REQUIRES</a></h1>
+<ul>
+<li><strong><a name="perl_5_10" class="item">Perl 5.10</a></strong>
+
+</li>
+<li><strong><a name="crypt_passwdmd5" class="item">Crypt::PasswdMD5</a></strong>
+
+</li>
+<li><strong><a name="carp" class="item">Carp</a></strong>
+
+</li>
+<li><strong><a name="dbi" class="item">DBI</a></strong>
+
+</li>
+</ul>
+<p>Crypt::PasswdMD5 is <code>libcyrpt-passwdmd5-perl</code> in Debian, 
+DBI is <code>libdbi-perl</code></p>
+<p>
+</p>
+<hr />
+<h1><a name="description">DESCRIPTION</a></h1>
+<p>Vpostmail is an attempt to provide a bunch of neat functions that wrap around the tedious SQL involved
+in interfering with a Postfix/Dovecot/MySQL virtual mailbox mail system. It can probably be used on others
+so long as the DB schema is similar enough.</p>
+<p>It's _very_much_ still in development. All sorts of things will change :) This is currently a todo list as much
+as it is documentation of the module.</p>
+<p>
+</p>
+<hr />
+<h1><a name="methods">METHODS</a></h1>
+<p>
+</p>
+<h2><a name="getters_and_setters">Getters and Setters</a></h2>
+<p>Anything that operates on a domain or a user will expect the object's user or domain to have already been set with 
+one of these. The getters and setters are</p>
+<pre>
+ getUser()
+ getDomain()
+ setUser()
+ setDomain()</pre>
+<p>Functions do not, in general, expect to be passed either a user or a domain as an argument, with <a href="#createdomain"><code>createDomain()</code></a> and 
+<a href="#createuser"><code>createUser()</code></a> acting as notable examples - they will accept either set in the hash of settings they're passed.</p>
+<p>There is also a pair of 'unsetters':</p>
+<pre>
+ unsetUser()
+ unsetDomain()</pre>
+<p>The setters will return the value to which they have set the variable; these two are equivalent:</p>
+<pre>
+  $d-&gt;setDomain('example.org');
+  print $d-&gt;getDomain();</pre>
+<pre>
+  print $d-&gt;setDomain('example.org');</pre>
+<p>in that both will print 'example.org'.</p>
+<dl>
+<dt><strong><a name="setuser" class="item"><code>setUser()</code></a></strong></dt>
+
+<dd>
+<p>setUser may either be passed the full username (<code>bob@example.org</code>) or, if a domain is already set with <code>setDomain()</code>, just
+the left-hand-side (<code>bob</code>). These two are equivalent:</p>
+<pre>
+ $d-&gt;setDomain('example.org');
+ $d-&gt;setUser('bob');</pre>
+<pre>
+ $d-&gt;setUser('bob@example.org');</pre>
+<p>Note that this behaviour depends upon the argument to <a href="#setuser"><code>setUser()</code></a>, not only the set-ness of a domain. If no domain is 
+set, then the argument to <a href="#setuser"><code>setUser</code></a> is always assumed to be the whole username.</p>
+<p>If a domain is set, then the argument is assumed to be a whole email address if it contains a '@', else it's assumed
+to be a left-hand-side only.</p>
+</dd>
+<dt><strong><a name="unsetdomain" class="item"><code>unsetDomain()</code> and <code>unsetUser()</code></a></strong></dt>
+
+<dd>
+<p>Sets the domain or the user to <code>undef</code>. Returns the previous value of the variable, rather than the new value (which you 
+would get out of the setters):</p>
+<pre>
+  $d-&gt;setDomain('example.org')
+  print $d-&gt;setDomain(undef);</pre>
+<p>will print undef, whereas</p>
+<pre>
+  $d-&gt;setDomain('example.org)
+  print $d-&gt;unsetDomain();</pre>
+<p>will print '<code>example.org</code>'</p>
+</dd>
+</dl>
+<p>
+</p>
+<h2><a name="user_and_domain_information">User and domain information</a></h2>
+<dl>
+<dt><strong><a name="numdomains" class="item"><code>numDomains()</code></a></strong></dt>
+
+<dd>
+<p>Returns the number of domains configured on the server. If you'd like only those that match some pattern, you should use <a href="#listdomains"><code>listDomains()</code></a> and measure 
+the size of the returned list.</p>
+</dd>
+<dt><strong><a name="numusers" class="item"><code>numUsers()</code></a></strong></dt>
+
+<dd>
+<p>Returns the number of configured users. If a domain is set (with <code>setDomain()</code>) it will only return users configured on that domain. If not, 
+it will return all the users. If you'd like only those that match some pattern, you should use <code>listUsers()</code> and measure the size of the returned
+list.</p>
+</dd>
+<dt><strong><a name="listdomains" class="item"><code>listDomains()</code></a></strong></dt>
+
+<dd>
+<p>Returns a list of domains on the system. You may pass a regex as an argument, and only those domains matching that regex are supplied. There's 
+no way of passing options, and the regex is matched case-sensitively - you need to build insensitivity in to the pattern if you want it.</p>
+</dd>
+<dt><strong><code>listDomains()</code></strong></dt>
+
+<dd>
+<p>Returns a list of users on the system (or, if it's previously been defined, the domain).</p>
+<p>You may pass a regex as an argument, and only those users matching that regex are supplied. There's no way of passing options, and the regex is 
+matched case-sensitively - you need to build insensitivity in to the pattern if you want it.</p>
+</dd>
+<dt><strong><a name="domainexists" class="item"><code>domainExists()</code> and <code>userExists()</code></a></strong></dt>
+
+<dd>
+<p>Check for the existence of a user or a domain. Returns the amount it found (in anticipation of also serving as a sort-of search)
+if the domain or user does exist, empty otherwise.</p>
+</dd>
+<dt><strong><a name="getuserinfo" class="item"><code>getUserInfo()</code></a></strong></dt>
+
+<dd>
+<p>Returns a hash containing info about the user. The keys are the same as the internally-used names for the fields
+in the SQL (as you can find from <code>getFields()</code> and <code>getTables()</code> ).</p>
+<p>The hash keys are essentially the same as those found by getFields:</p>
+<pre>
+        username        The username. Hopefully redundant.
+        password        The crypted password of the user
+        name            The human name associated with the username
+        domain          The domain the user is associated with
+        local_part      The local part of the email address
+        maildir         The path to the maildir *relative to the maildir root configured in Postfix/Dovecot*
+        active          Whether or not the user is active
+        created         Creation data
+        modified        Last modified data</pre>
+<p>User needs to have been set previously.</p>
+<p>The hash is returned even in the eventuality that it is empty. This function does not test for the existence of
+a user, (use <code>userExists()</code> for that).</p>
+</dd>
+<dt><strong><a name="getdomaininfo" class="item"><code>getDomainInfo()</code></a></strong></dt>
+
+<dd>
+<p>Returns a hash containing info about the domain. The keys are the same as the internally-used names for the fields
+in the SQL (as you can find from getFields and getTables), with a couple of additions:</p>
+<pre>
+        domain          The domain name (hopefully redundant)
+        description     Content of the description field
+        quota           Mailbox size quota
+        transport       Postfix transport (usually virtual)
+        active          Whether the domain is active or not
+        backupmx0       Whether this is a  backup MX for the domain
+        mailboxes       Array of mailbox usernames associated with the domain (note: the full username, not just the local part)
+        modified        last modified date 
+        num_mailboxes   Count of the mailboxes (effectively, the length of the array in mailboxes)
+        created         Creation data
+        aliases         Alias quota for the domain
+        maxquota        Mailbox quota for teh domain</pre>
+<p>Domain needs to have been set previously.</p>
+<p>The hash is returned even if it is empty - this does not check for the existence of a domain, that's what I gave you <a href="#domainexists"><code>domainExists()</code></a> for.</p>
+</dd>
+</dl>
+<p>
+</p>
+<h2><a name="passwords">Passwords</a></h2>
+<dl>
+<dt><strong><a name="cryptpassword" class="item"><code>cryptPassword()</code></a></strong></dt>
+
+<dd>
+<p>This probably has no real use, except for where other functions use it. It should let you specify a 
+salt for the password, but doesn't yet. It expects a cleartext password as an argument, and returns the crypted sort.</p>
+</dd>
+<dt><strong><a name="changepassword" class="item"><code>changePassword()</code></a></strong></dt>
+
+<dd>
+<p>Changes the password of a user. The user should be set with <a href="#setuser"><code>setUser</code></a> (or equivalent) and the cleartext password 
+passed as an argument. It returns the encrypted password as written to the DB. 
+The salt is picked at pseudo-random; successive runs will (should) produce different results.</p>
+</dd>
+<dt><strong><a name="changecryptedpassword" class="item"><code>changeCryptedPassword()</code></a></strong></dt>
+
+<dd>
+<p>changeCryptedPassword operates in exactly the same way as changePassword, but it expects to be passed an already-encrypted 
+password, rather than a clear text one. It does no processing at all of its arguments, just writes it
+into the database.</p>
+</dd>
+</dl>
+<p>
+</p>
+<h2><a name="creating_things">Creating things</a></h2>
+<dl>
+<dt><strong><a name="createdomain" class="item"><code>createDomain()</code></a></strong></dt>
+
+<dd>
+<p>Expects to be passed a hash of options, with the keys being the same as those output by <a href="#getdomaininfo"><code>getDomainInfo()</code></a>. None
+are necessary (provided <code>setDomain()</code> has been called so it knows which domain it's creating). If the 'domain' 
+key is in the hash passed, this overrules the set domain.</p>
+<p>Defaults are set as follows:</p>
+<pre>
+        domain          The domain as set with setDomain. Errors without this
+        description     A null string
+        quota           MySQL's default
+        transport       'virtual'
+        active          1 (active)
+        backupmx0       MySQL's default
+        modified        now
+        created         now
+        aliases         MySQL's default
+        maxquota        MySQL's default</pre>
+<p>Defaults are only set on keys that haven't been instantiated. If you set a key to undef or a null string, it will
+not be set to the default - null will be passed to the DB and it may set its own default.</p>
+<p>On both success and failure the function will return a hash containing the options used to configure the domain - 
+you can inspect this to see which defaults were set by the module if you like.</p>
+<p>If the domain already exists, this function will not alter it. It wil exit with a return value of 2 (indicating that
+it thinks its job has already been done) and populate the <a href="#infostr"><code>infostr</code></a> with &quot;Domain already exists (&lt;domain&gt;)&quot;. In this 
+instance, you don't get the hash.</p>
+</dd>
+<dt><strong><a name="createuser" class="item"><code>createUser()</code></a></strong></dt>
+
+<dd>
+<p>Expects to be passed a hash of options, with the keys being the same as those output by <code>etUserInfo()</code>. None
+are necessary (provided a user has been set so it knows which user to create). If the 'username' key is in the
+passed hash, it overrides any set user.</p>
+<p>If both <code>password_plain</code> and &lt;password_crypt&gt; are in the passed hash, <code>password_crypt</code> will be used. If only 
+password_plain is passed it will be crypted with <code>cryptPasswd()</code> and then inserted.</p>
+<p>Defaults are mostly sane where values aren't explicitly passed:</p>
+<pre>
+ password       null
+ name           null
+ maildir        username with a '/' appended to it
+ quota          MySQL default (normally zero)
+ local_part     the part of the username to the left of the first '@'
+ domain         the part of the username to the right of the last '@'
+ created        now
+ modified       now
+ active         MySQL's default</pre>
+<p>These are only set if they fail an <code>exists()</code> test; if <code>undef</code> is passed, for example, it will not be clobbered 
+- null will be written to MySQL and it will take care of any defaults.</p>
+<p>On both success and failure, the function will return a hash containing the options used to configure the user - 
+you can inspect this to see which defaults were set.</p>
+<p>If the domain already exists, this function will not alter it. It wil exit with a return value of 2 (indicating that
+it thinks its job has already been done) and populate <a href="#infostr"><code>infostr</code></a> with &quot;User already exists (&lt;user&gt;)&quot; In this 
+instance, you don't get the hash.</p>
+</dd>
+</dl>
+<p>
+</p>
+<h2><a name="deleting_things">Deleting things</a></h2>
+<dl>
+<dt><strong><a name="removeuser" class="item"><code>removeUser()</code>;</a></strong></dt>
+
+<dd>
+<p>Removes the user set in <a href="#setuser"><code>setUser()</code></a>.</p>
+<p>Returns 1 on successful removal of a user, 2 if the user didn't exist to start with.</p>
+<p><a href="#infostr"><code>infostr</code></a> is set to the query run only if the user exists. If the user doesn't exist, no query is run
+and <a href="#infostr"><code>infostr</code></a> is set to &quot;user doesn't exist (&lt;user&gt;)&quot;;</p>
+</dd>
+<dt><strong><a name="removedomain" class="item"><code>removeDomain()</code></a></strong></dt>
+
+<dd>
+<p>Removes the domain set in <code>SetDomain()</code>, and all of its attached users (using <a href="#removeuser"><code>removeUser()</code></a>).</p>
+<p>Returns 1 on successful removal of a user, 2 if the user didn't exist to start with.</p>
+<p><a href="#infostr"><code>infostr</code></a> is set to the query run only if the domain exists - if the domain doesn't exist no query is run and <a href="#infostr"><code>infostr</code></a> is set to 
+&quot;domain doesn't exist (&lt;domain&gt;)&quot;;</p>
+</dd>
+</dl>
+<p>
+</p>
+<h2><a name="the_db_schema">The DB schema</a></h2>
+<p>Internally, the db schema is stored in two hashes.</p>
+<p><code>%_tables</code> is a hash storing the names of the tables. The keys are the values used internally to refer to the 
+tables, and the values are the names of the tables in the db.</p>
+<p><code>%_fields</code> is a hash of hashes. The 'top' hash has as keys the internal names for the tables (as found in 
+<code>getTables()</code>), with the values being hashes representing the tables. Here, the key is the name as used internally, 
+and the value the names of those fields in the SQL.</p>
+<p>Currently, the assumptions made of the database schema are very small. We asssume two tables, 'mailbox' and 
+'domain':</p>
+<pre>
+ mysql&gt; describe mailbox;
+ +------------+--------------+------+-----+---------------------+-------+
+ | Field      | Type         | Null | Key | Default             | Extra |
+ +------------+--------------+------+-----+---------------------+-------+
+ | username   | varchar(255) | NO   | PRI | NULL                |       |
+ | password   | varchar(255) | NO   |     | NULL                |       |
+ | name       | varchar(255) | NO   |     | NULL                |       |
+ | maildir    | varchar(255) | NO   |     | NULL                |       |
+ | quota      | bigint(20)   | NO   |     | 0                   |       |
+ | local_part | varchar(255) | NO   |     | NULL                |       |
+ | domain     | varchar(255) | NO   | MUL | NULL                |       |
+ | created    | datetime     | NO   |     | 0000-00-00 00:00:00 |       |
+ | modified   | datetime     | NO   |     | 0000-00-00 00:00:00 |       |
+ | active     | tinyint(1)   | NO   |     | 1                   |       |
+ +------------+--------------+------+-----+---------------------+-------+
+ 10 rows in set (0.00 sec)
+   
+ mysql&gt; describe domain;
+ +-------------+--------------+------+-----+---------------------+-------+
+ | Field       | Type         | Null | Key | Default             | Extra |
+ +-------------+--------------+------+-----+---------------------+-------+
+ | domain      | varchar(255) | NO   | PRI | NULL                |       |
+ | description | varchar(255) | NO   |     | NULL                |       |
+ | aliases     | int(10)      | NO   |     | 0                   |       |
+ | mailboxes   | int(10)      | NO   |     | 0                   |       |
+ | maxquota    | bigint(20)   | NO   |     | 0                   |       |
+ | quota       | bigint(20)   | NO   |     | 0                   |       |
+ | transport   | varchar(255) | NO   |     | NULL                |       |
+ | backupmx    | tinyint(1)   | NO   |     | 0                   |       |
+ | created     | datetime     | NO   |     | 0000-00-00 00:00:00 |       |
+ | modified    | datetime     | NO   |     | 0000-00-00 00:00:00 |       |
+ | active      | tinyint(1)   | NO   |     | 1                   |       |
+ +-------------+--------------+------+-----+---------------------+-------+
+ 11 rows in set (0.00 sec)</pre>
+<p>And, er, that's it.</p>
+<p><code>getFields</code> returns <code>%_fields</code>, <code>getTables %_tables</code>. <code>setFields</code> and <code>setTables</code> resets them to the hash passed as an 
+argument. It does not merge the two hashes.</p>
+<p>This is the only way you should be interfering with those hashes.</p>
+<p>Since the module does no guesswork as to the db schema (yet), you might need to use these to get it to load 
+yours. Even when it does do that, it might guess wrongly.</p>
+<p>
+</p>
+<hr />
+<h1><a name="class_variables">CLASS VARIABLES</a></h1>
+<dl>
+<dt><strong><a name="errstr" class="item">errstr</a></strong></dt>
+
+<dd>
+<p>$v-&gt;{errstr} contains the error message of the last action. If it's empty (i.e. <code>$v-</code>errstr eq ''&gt;) then it should be safe to assume
+nothing went wrong. Currently, it's only used where the creation or deletion of something appeared to succeed, but the something 
+didn't begin to exist or cease to exist.</p>
+</dd>
+<dt><strong><a name="infostr" class="item">infostr</a></strong></dt>
+
+<dd>
+<p>$v-&gt;{infostr} is more useful.
+Generally, it contains the SQL queries used to perform whatever job the function performed, excluding any ancilliary checks. If it
+took more than one SQL query, they're concatenated with semi-colons between them.</p>
+<p>It also populated when trying to create something that exists, or delete something that doesn't.</p>
+</dd>
+<dt><strong><a name="dbi" class="item">dbi</a></strong></dt>
+
+<dd>
+<p>$v-&gt;{dbi} is the dbi object used by the rest of the module, having guessed/set the appropriate credentials.</p>
+</dd>
+</dl>
+<p>
+</p>
+<hr />
+<h1><a name="diagnostics">DIAGNOSTICS</a></h1>
+<p>Functions generally return:</p>
+<ul>
+<li><strong><a name="null_on_failure" class="item">null on failure</a></strong>
+
+</li>
+<li><strong><a name="1_on_success" class="item">1 on success</a></strong>
+
+</li>
+<li><strong><a name="do" class="item">2 where there was nothing to do (as if their job had already been performed)</a></strong>
+
+</li>
+</ul>
+<p>See <a href="#errstr"><code>errstr</code></a> and <a href="#infostr"><code>infostr</code></a> for better diagnostics.</p>
+
+</body>
+
+</html>
