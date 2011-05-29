@@ -140,7 +140,9 @@ the left-hand-side (bob). These two are equivalent:
 
 Note that this behaviour depends upon the argument to setUser, not only the set-ness of a domain. If no domain is 
 set, then the argument to setUser is always assumed to be the whole username.
-If a domain is set, then if the argument to SetUser contains an '@' it is assumed to be the whole username, else only
+
+If a domain is set, then the argument is assumed to be a whole email address if it contains a '@', else it's assumed
+to be a left-hand-side only.
 
 =cut
 
@@ -209,7 +211,9 @@ sub unsetUser(){
 
 None of these expect arguments, or do anything with any argument they're supplied. They will, one day, accept a regex 
 as their only argument, having applied the regex sensibly to their normal return values.
+
 =over 0
+
 =item numDomains()
 
 Returns the number of domains configured on the server. Will, one day, accept a regular expression as an argument
