@@ -64,6 +64,7 @@ sub new() {
 	my $self = {};
 	bless($self,$class);
 	$self->{configFiles}->{'postfix'} = '/etc/postfix/main.cf';
+	$self->{dbi} = &_dbConnection('/etc/postfix/main.cf');
 	$self->{errstr};
 	$self->{infostr};
 	my %_tables = &_tables;
@@ -219,7 +220,6 @@ the size of the returned list.
 
 =cut
 
-##Todo: Accept a regex to match
 sub numDomains(){
 	my $self = shift;
 	my $query = "select count(*) from $self->{tables}->{domain}";
@@ -240,7 +240,6 @@ list.
 
 =cut
 
-##Todo: make the above true
 sub numUsers(){
 	my $self = shift;
 	my $query;
@@ -751,7 +750,7 @@ sub _dbConnection(){
                         }
                 }
         }
-        my $dbh = DBI->connect("DBI:mysql:$db{'name'}:host=$db{'host'}", $db{'user'}, $db{'pass'}) || die "Could not connect to database: $DBI::errstr";
+        my $dbh = DBI->connect("DBI:mysql:$db{'name'}:host=$db{'host'}", $db{'user'}, $db{'pass'}, {RaiseError => '1'}) || die "Could not connect to database: $DBI::errstr";
         return $dbh
 }
 
