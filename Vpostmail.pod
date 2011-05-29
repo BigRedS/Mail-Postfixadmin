@@ -224,6 +224,8 @@ sub numDomains(){
 	return $self->{_numDomains};
 }
 
+=over
+
 =item numUsers()
 
 Returns the number of configured users. If a domain is set (with setDomain() ) it will only return users 
