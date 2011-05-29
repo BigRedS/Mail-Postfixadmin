@@ -40,8 +40,11 @@ Vpostmail - Interferes with a Postfix/Dovecot/MySQL system
 =head1 REQUIRES
 
 Perl 5.10  (even Lenny ships with 5.10)
+
 Crypt::PasswdMD5 (libcrypt-passwdmd5-perl in Debian)
+
 Carp
+
 DBI (libdbi-perl in Debian)
 
 =head1 DESCRIPTION
