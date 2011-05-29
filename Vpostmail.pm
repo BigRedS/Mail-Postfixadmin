@@ -39,13 +39,21 @@ Vpostmail - Interferes with a Postfix/Dovecot/MySQL system
 
 =head1 REQUIRES
 
-Perl 5.10  (even Lenny ships with 5.10)
+=over 
 
-Crypt::PasswdMD5 (libcrypt-passwdmd5-perl in Debian)
+=item * Perl 5.10
 
-Carp
+=item * Crypt::PasswdMD5 
 
-DBI (libdbi-perl in Debian)
+=item * Carp
+
+=item * DBI
+
+=back
+
+Crypt::PasswdMD5 is C<libcyrpt-passwdmd5-perl> in Debian, 
+DBI is C<libdbi-perl in Debian>
+
 
 =head1 DESCRIPTION
 
@@ -111,8 +119,8 @@ one of these. The getters and setters are
  setUser()
  setDomain()
 
-Functions do not, in general, expect to be passed either a user or a domain as an argument, with createDomain() and 
-createUser() acting as notable examples - they will accept either set in the hash of settings they're passed.
+Functions do not, in general, expect to be passed either a user or a domain as an argument, with C<createDomain()> and 
+C<createUser()> acting as notable examples - they will accept either set in the hash of settings they're passed.
 
 There is also a pair of 'unsetters':
 
@@ -132,16 +140,16 @@ in that both will print 'example.org'.
 
 =item setUser()
 
-setUser may either be passed the full username (bob@example.org) or, if a domain is already set with setDomain(), just
-the left-hand-side (bob). These two are equivalent:
+setUser may either be passed the full username (C<bob@example.org>) or, if a domain is already set with C<setDomain()>, just
+the left-hand-side (C<bob>). These two are equivalent:
 
  $d->setDomain('example.org');
  $d->setUser('bob');
 
  $d->setUser('bob@example.org');
 
-Note that this behaviour depends upon the argument to setUser, not only the set-ness of a domain. If no domain is 
-set, then the argument to setUser is always assumed to be the whole username.
+Note that this behaviour depends upon the argument to C<setUser()>, not only the set-ness of a domain. If no domain is 
+set, then the argument to C<setUser> is always assumed to be the whole username.
 
 If a domain is set, then the argument is assumed to be a whole email address if it contains a '@', else it's assumed
 to be a left-hand-side only.
@@ -177,7 +185,7 @@ sub setUser(){
 
 =item unsetDomain() and unsetUser()
 
-Sets the domain or the user to undef. Returns the previous value of the variable, rather than the new value (which you 
+Sets the domain or the user to C<undef>. Returns the previous value of the variable, rather than the new value (which you 
 would get out of the setters):
 
   $d->setDomain('example.org')
@@ -188,7 +196,7 @@ will print undef, whereas
   $d->setDomain('example.org)
   print $d->unsetDomain();
 
-will print 'example.org'
+will print 'C<example.org>'
 
 =cut
 
@@ -211,31 +219,31 @@ sub unsetUser(){
 
 =head2 User and domain information
 
-=over 0
+=over
 
 =item numDomains()
 
-Returns the number of domains configured on the server. If you'd like only those that match some pattern, you should use listDomains() and measure 
+Returns the number of domains configured on the server. If you'd like only those that match some pattern, you should use C<listDomains()> and measure 
 the size of the returned list.
 
 =cut
 
+
 sub numDomains(){
 	my $self = shift;
 	my $query = "select count(*) from $self->{tables}->{domain}";
-	$self->{infostr} = $query;
 	my $numDomains = ($self->{dbi}->selectrow_array($query))[0];
 	$numDomains--;	# since there's an 'ALL' domain in the db
 	$self->{_numDomains} = $numDomains;
+	$self->{infostr} = $query;
 	return $self->{_numDomains};
 }
 
-=over
 
 =item numUsers()
 
-Returns the number of configured users. If a domain is set (with setDomain() ) it will only return users configured on that domain. If not, 
-it will return all the users. If you'd like only those that match some pattern, you should use listUsers() and measure the size of the returned
+Returns the number of configured users. If a domain is set (with C<setDomain()>) it will only return users configured on that domain. If not, 
+it will return all the users. If you'd like only those that match some pattern, you should use C<listUsers()> and measure the size of the returned
 list.
 
 =cut
@@ -244,7 +252,6 @@ sub numUsers(){
 	my $self = shift;
 	my $query;
 	my $domain = $self->{_domain};
-
 	if ($domain){
 		$query = "select count(*) from `$self->{tables}->{alias}` where $self->{fields}->{alias}->{domain} = \'$self->{_domain}\'"
 	}else{
@@ -313,7 +320,8 @@ sub listUsers(){
 
 =item domainExists() and userExists()
 
-Check for the existence of a user or a domain.
+Check for the existence of a user or a domain. Returns the amount it found (in anticipation of also serving as a sort-of search)
+if the domain or user does exist, empty otherwise.
 
 When they do accept an argument, it will be a hash of search terms, the precise mechanics of which I've yet to decide upon.
 
@@ -329,7 +337,7 @@ sub domainExists(){
 	my $count = ($sth->fetchrow_array())[0];
 	$self->{infostr} = $query;
 	if ($count > 0){
-		return 0;
+		return $count;
 	}else{
 		return;
 	}
@@ -354,14 +362,14 @@ sub userExists(){
 =item getUserInfo()
 
 Returns a hash containing info about the user. The keys are the same as the internally-used names for the fields
-in the SQL (as you can find from getFields() and getTables() ).
+in the SQL (as you can find from C<getFields()> and C<getTables()> ).
 
 The hash keys are essentially the same as those found by getFields:
 
 	username	The username. Hopefully redundant.
 	password	The crypted password of the user
 	name		The human name associated with the username
-	domain		Teh domain the user is associated with
+	domain		The domain the user is associated with
 	local_part	The local part of the email address
 	maildir		The path to the maildir *relative to the maildir root configured in Postfix/Dovecot*
 	active		Whether or not the user is active
@@ -369,7 +377,10 @@ The hash keys are essentially the same as those found by getFields:
 	modified	Last modified data
 
 
-User needs to have been set by setUser() previously.
+User needs to have been set by previously.
+
+The hash is returned even in the eventuality that it is empty. This function does not test for the existence of
+a user, (use C<userExists()> for that).
 
 =cut
 
@@ -380,8 +391,6 @@ sub getUserInfo(){
 	my %userinfo;
 	my $query = "select * from `$self->{tables}->{mailbox}` where $self->{fields}->{mailbox}->{username} = '$user'";
 	my $userinfo = $self->{dbi}->selectrow_hashref($query);
-
-
 	# we want to return a hash using the names of the fields we use internally
 	# in pursuit of consistency of output, but we'll be given them as named
 	# in the db here. We do, however, have a hash defining these. Here, we create
@@ -421,7 +430,9 @@ in the SQL (as you can find from getFields and getTables), with a couple of addi
 	maxquota	Mailbox quota for teh domain
 
 
-Domain needs to have been set by setDomain() previously.
+Domain needs to have been set previously.
+
+The hash is returned even if it is empty - this does not check for the existence of a domain, that's what I gave you C<domainExists()> for.
 
 =cut
 
@@ -443,7 +454,6 @@ sub getDomainInfo(){
 		$return{$myname} = $info;
 	}
 	$self->{infostr} = $query;
-
 	$query = "select username from `$self->{tables}->{mailbox}` where $self->{fields}->{mailbox}->{domain} = '$domain'";
 	$self->{infostr}.=";".$query;
 	my $sth = $self->{dbi}->prepare($query);
@@ -466,7 +476,7 @@ sub getDomainInfo(){
 
 =item cryptPassword()
 
-cryptPassword probably has no real use, except for where other functions use it. It should let you specify a 
+This probably has no real use, except for where other functions use it. It should let you specify a 
 salt for the password, but doesn't yet. It expects a cleartext password as an argument, and returns the crypted sort. 
 
 =cut
@@ -480,7 +490,7 @@ sub cryptPassword(){
 
 =item changePassword() 
 
-changePassword changes the password of a user. The user should be set with setUser and the cleartext password 
+Changes the password of a user. The user should be set with C<setUser> (or equivalent) and the cleartext password 
 passed as an argument. It returns the encrypted password as written to the DB. 
 The salt is picked at pseudo-random; successive runs will (should) produce different results.
 
@@ -531,9 +541,9 @@ sub changeCryptedPassword(){
 
 =item createDomain()
 
-Expects to be passed a hash of options, with the keys being the same as those output by getDomainInfo(). None
-are necessary (provided setDomain() has been called). If the 'domain' key is passed, setDomain need not have been 
-called previously.
+Expects to be passed a hash of options, with the keys being the same as those output by C<getDomainInfo()>. None
+are necessary (provided C<setDomain()> has been called so it knows which domain it's creating). If the 'domain' 
+key is in the hash passed, this overrules the set domain.
 
 Defaults are set as follows:
 
@@ -551,8 +561,12 @@ Defaults are set as follows:
 Defaults are only set on keys that haven't been instantiated. If you set a key to undef or a null string, it will
 not be set to the default - null will be passed to the DB and it may set its own default.
 
-On both success and failure, the function will return a hash containing the options used to configure the domain - 
-you can inspect this to see which defaults were set.
+On both success and failure the function will return a hash containing the options used to configure the domain - 
+you can inspect this to see which defaults were set by the module if you like.
+
+If the domain already exists, this function will not alter it. It wil exit with a return value of 2 (indicating that
+it thinks its job has already been done) and populate the C<infostr> with "Domain already exists (<domain>)". In this 
+instance, you don't get the hash.
 
 =cut
 
@@ -562,12 +576,19 @@ sub createDomain(){
 	my $fields;
 	my $values;
 	$opts{domain} = $self->{_domain} unless exists($opts{domain});
+	$self->{_domain} = $opts{domain};
+	if($self->{_domain} eq ''){
+		Carp::croak "No domain supplied";
+	}
+	if ($self->domainExists()){
+		$self->{infostr} = "Domain already exists ($self->{_domain})";
+		return 2;
+	}
+
 	$opts{modified} = $self->_mysqlNow unless exists($opts{modified});
 	$opts{created} = $self->_mysqlNow unless exists($opts{created});
 	$opts{active} = '1' unless exists($opts{active});
-
 	$opts{transport} = 'virtual' unless exists($opts{quota});
-
 	foreach(keys(%opts)){
 		$fields.= $self->{fields}->{domain}->{$_}.", ";
 		$values.= "'$opts{$_}', ";;
@@ -579,17 +600,22 @@ sub createDomain(){
 	my $sth = $self->{dbi}->prepare($query);
 	$sth->execute();	
 	$self->{infostr} = $query;
-	return %opts;
+	if($self->domainExists()){
+		return %opts;
+	}else{
+		$self->{errstr} = "Everything appeared to succeed, but the domain doesn't exist";
+		return;
+	}
 }
 
 =item createUser()
 
-Expects to be passed a hash of options, with the keys being the same as those output by getUserInfo(). None
-are necessary (provided setUser() has been set). If the 'username' key is passed, setUser need not have been 
-called previously.
+Expects to be passed a hash of options, with the keys being the same as those output by C<etUserInfo()>. None
+are necessary (provided a user has been set so it knows which user to create). If the 'username' key is in the
+passed hash, it overrides any set user.
 
-If both password_plain and password_crypt are passed, password_crypt will be used. If only password_plain 
-is passed it will be crypted with cryptPasswd() and then inserted.
+If both C<password_plain> and <password_crypt> are in the passed hash, C<password_crypt> will be used. If only 
+password_plain is passed it will be crypted with C<cryptPasswd()> and then inserted.
 
 Defaults are mostly sane where values aren't explicitly passed:
 
@@ -604,11 +630,15 @@ Defaults are mostly sane where values aren't explicitly passed:
  modified	now
  active		MySQL's default
 
-These are only set if they fail an exists() test; if undef is passed, it will not be clobbered - null 
-will be written to MySQL and it will take care of any defaults.
+These are only set if they fail an C<exists()> test; if C<undef> is passed, for example, it will not be clobbered 
+- null will be written to MySQL and it will take care of any defaults.
 
 On both success and failure, the function will return a hash containing the options used to configure the user - 
 you can inspect this to see which defaults were set.
+
+If the domain already exists, this function will not alter it. It wil exit with a return value of 2 (indicating that
+it thinks its job has already been done) and populate C<infostr> with "Domain already exists (<domain>)" In this 
+instance, you don't get the hash.
 
 =cut
 
@@ -618,7 +648,15 @@ sub createUser(){
 	my $fields;
 	my $values;
 
-	$opts{username} = $self->{_user};
+	$opts{username} = $self->{_user} unless (exists $opts{username});
+	$self->{_user} = $opts{username};
+	if($self->{_user} eq ''){
+		Carp::croak "user not set";;
+	}
+	if($self->userExists()){
+		$self->{infostr} = "User already exists ($self->{_user})";
+		return 2;
+	}
 
 	if($opts{password_crypt}){
 		$opts{password} = $opts{password_crypt};
@@ -661,7 +699,12 @@ sub createUser(){
 	my $sth = $self->{dbi}->prepare($query);
 	$sth->execute();	
 	$self->{infostr} = $query;
-	return %opts;
+	if($self->userExists()){
+		return %opts;
+	}else{
+		$self->{errstr} = "Everything appeared to succeed, but the user doesn't exist";
+		return;
+	}
 }
 
 =back
@@ -672,7 +715,12 @@ sub createUser(){
 
 =item removeUser();
 
-Removes the user set in setUser()
+Removes the user set in C<setUser()>.
+
+Returns 1 on successful removal of a user, 2 if the user didn't exist to start with.
+
+C<infostr> is set to the query run only if the user exists. If the user doesn't exist, no query is run if 
+and C<infostr> is set to "user doesn't exist (<user>)";
 
 =cut
 
@@ -681,17 +729,33 @@ sub removeUser(){
 	my $self = shift;
 	my $username = $self->{_user};
 	if ($username eq ''){;
-		Carp::croak("No user set (you probably need to setUser() ) ");
+		Carp::croak("No user set");
+	}
+	if (!$self->userExists){
+		$self->{infostr} = "User doesn't exist ($self->{_user}) ";
+		return 2;
 	}
 	my $query = "delete from $self->{tables}->{mailbox} where $self->{fields}->{mailbox}->{username} = '$username'";
 	my $sth = $self->{dbi}->prepare($query);
 	$sth->execute();
 	$self->{infostr} = $query;
-}
+	if ($self->userExists()){
+		$self->{errstr} = "Everything appeared successful but user $self->{_user} still exists";
+		return;
+	}else{
+		return 1;
+	}
+}	
+	
 
 =item removeDomain()
 
-Removes the domain set in setDomain(), and all of its attached users (using removeUser()).  
+Removes the domain set in C<SetDomain()>, and all of its attached users (using C<removeUser()>).  
+
+Returns 1 on successful removal of a user, 2 if the user didn't exist to start with.
+
+C<infostr> is set to the query run only if the domain exists - if the domain doesn't exist no query is run and C<infostr> is set to 
+"domain doesn't exist (<domain>)";
 
 =cut
 
@@ -699,7 +763,11 @@ sub removeDomain(){
 	my $self = shift;
 	my $domain = $self->{_domain};
 	if ($domain eq ''){
-		Carp::croak "No domain set - you probably need to setDomain()";
+		Carp::croak "No domain set";
+	}
+	if (!$self->domainExists){
+		$self->{infostr} = "Domain doesn't exist ($self->{infostr})";
+		return 2;
 	}
 	my @users = $self->listUsers();
 	foreach(@users){
@@ -709,8 +777,16 @@ sub removeDomain(){
 	$self->{user} = undef;
 	my $query = "delete from $self->{tables}->{domain} where $self->{fields}->{domain}->{domain} = '$domain'";
 	my $sth = $self->{dbi}->prepare($query);
-	$self->{infostr} = $query;
 	$sth->execute;
+	if ($self->domainExists()){
+		$self->{errstr} = "Everything appeared successful but domain $self->{_domain} still exists";
+		$self->{infostr} = $query;
+		return;
+	}else{
+		$self->{infostr} = $query;
+		return 2;
+	}
+
 }
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
  # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -756,24 +832,66 @@ sub _dbConnection(){
 
 =back 
 
-=head2 Setting the DB environment
+=head2 The DB schema
 
 Internally, the db schema is stored in two hashes. 
 
-%_tables is a hash storing the names of the tables. The keys are the values used internally to refer to the 
+C<%_tables> is a hash storing the names of the tables. The keys are the values used internally to refer to the 
 tables, and the values are the names of the tables in the db.
 
-%_fields is a hash of hashes. The 'top' hash has as keys the internal names for the tables (as found in 
-getTables), with the values being hashes representing the tables. Here, the key is the name as used internally, 
+C<%_fields> is a hash of hashes. The 'top' hash has as keys the internal names for the tables (as found in 
+C<getTables()>), with the values being hashes representing the tables. Here, the key is the name as used internally, 
 and the value the names of those fields in the SQL.
 
-getFields returns %_fields, getTables %_tables. setFields and setTables resets them to the hash passed as an 
+Currently, the assumptions made of the database schema are very small. We asssume two tables, 'mailbox' and 
+'domain':
+
+ mysql> describe mailbox;
+ +------------+--------------+------+-----+---------------------+-------+
+ | Field      | Type         | Null | Key | Default             | Extra |
+ +------------+--------------+------+-----+---------------------+-------+
+ | username   | varchar(255) | NO   | PRI | NULL                |       |
+ | password   | varchar(255) | NO   |     | NULL                |       |
+ | name       | varchar(255) | NO   |     | NULL                |       |
+ | maildir    | varchar(255) | NO   |     | NULL                |       |
+ | quota      | bigint(20)   | NO   |     | 0                   |       |
+ | local_part | varchar(255) | NO   |     | NULL                |       |
+ | domain     | varchar(255) | NO   | MUL | NULL                |       |
+ | created    | datetime     | NO   |     | 0000-00-00 00:00:00 |       |
+ | modified   | datetime     | NO   |     | 0000-00-00 00:00:00 |       |
+ | active     | tinyint(1)   | NO   |     | 1                   |       |
+ +------------+--------------+------+-----+---------------------+-------+
+ 10 rows in set (0.00 sec)
+   
+ mysql> describe domain;
+ +-------------+--------------+------+-----+---------------------+-------+
+ | Field       | Type         | Null | Key | Default             | Extra |
+ +-------------+--------------+------+-----+---------------------+-------+
+ | domain      | varchar(255) | NO   | PRI | NULL                |       |
+ | description | varchar(255) | NO   |     | NULL                |       |
+ | aliases     | int(10)      | NO   |     | 0                   |       |
+ | mailboxes   | int(10)      | NO   |     | 0                   |       |
+ | maxquota    | bigint(20)   | NO   |     | 0                   |       |
+ | quota       | bigint(20)   | NO   |     | 0                   |       |
+ | transport   | varchar(255) | NO   |     | NULL                |       |
+ | backupmx    | tinyint(1)   | NO   |     | 0                   |       |
+ | created     | datetime     | NO   |     | 0000-00-00 00:00:00 |       |
+ | modified    | datetime     | NO   |     | 0000-00-00 00:00:00 |       |
+ | active      | tinyint(1)   | NO   |     | 1                   |       |
+ +-------------+--------------+------+-----+---------------------+-------+
+ 11 rows in set (0.00 sec)
+
+And, er, that's it.
+
+C<getFields> returns C<%_fields>, C<getTables %_tables>. C<setFields> and C<setTables> resets them to the hash passed as an 
 argument. It does not merge the two hashes.
 
 This is the only way you should be interfering with those hashes.
 
 Since the module does no guesswork as to the db schema (yet), you might need to use these to get it to load 
 yours. Even when it does do that, it might guess wrongly.
+
+
 
 =cut
 sub _tables(){
@@ -849,15 +967,35 @@ sub _mysqlNow() {
 
 =head1 CLASS VARIABLES
 
+=over
+
+=item errstr
+
 $d->errstr contains the error message of the last action. If it's empty (i.e. ($d->errstr eq '') then it should be safe to assume
-nothing went wrong.
-$d->infostr sometimes contains an informative string about the last action, generally the last MySQL query run
+nothing went wrong. Currently, it's only used where the creation or deletion of something appeared to succeed, but the something 
+didn't exist or cease to exist (whichever was expected).
+
+=item infostr
+
+$d->infostr is more useful.
+Generally, it contains the SQL queries concatenated by semi-colon used to perform whatever job the function performed, excluding 
+any ancilliary checks. 
+
+It also populated when trying to create something that exists, or delete something that doesn't.
+
+=item dbi
 
 $d->dbi is the dbi object used by the rest of the module, having guessed/set the appropriate credentials.
 
+=cut 
+
 =head1 DIAGNOSTICS
 
-There is no error checking and, hence, no error handling. Good luck!
+Functions generally return:
+
+null on failure
+1 on success
+2 where there was nothing to do (as if their job had already been performed)
 
 =cut
 
