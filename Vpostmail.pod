@@ -993,9 +993,17 @@ $d->dbi is the dbi object used by the rest of the module, having guessed/set the
 
 Functions generally return:
 
-null on failure
-1 on success
-2 where there was nothing to do (as if their job had already been performed)
+=over
+
+=item * null on failure
+
+=item * 1 on success
+
+=item * 2 where there was nothing to do (as if their job had already been performed)
+
+=back
+
+See C<errstr> and C<infostr> for better diagnostics.
 
 =cut
 
