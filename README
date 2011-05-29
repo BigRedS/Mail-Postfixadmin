@@ -6,7 +6,12 @@ Vpopmail, but for a Postfix/Dovecot/MySQL environment. Alternatively, it's an
 attempt to provide a command-line version of postfixadmin.
 
 Vpostmail.pm is (will be) a module providing the functions, and once that's done
-I'll write some scripts:
+I'll write some scripts. 
+
+Documentation for the module is at 
+ http://avi.co/Vpostmail.html
+
+And the scripts to be written are:
 
 vadddomain domain.name
   Create a domain with default settings
