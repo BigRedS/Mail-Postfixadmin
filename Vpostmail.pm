@@ -63,8 +63,9 @@ sub new() {
 	my $class = shift;
 	my $self = {};
 	bless($self,$class);
-	$self->{dbi} = &_dbConnection('/etc/postfix/main.cf');
 	$self->{configFiles}->{'postfix'} = '/etc/postfix/main.cf';
+	$self->{errstr};
+	$self->{infostr};
 	my %_tables = &_tables;
 	$self->{tables} = \%_tables;
 	my %_fields = &_fields;
@@ -213,8 +214,8 @@ sub unsetUser(){
 
 =item numDomains()
 
-Returns the number of domains configured on the server. Will, one day, accept a regular expression as an argument
-and only return the number of domins that match that pattern.
+Returns the number of domains configured on the server. If you'd like only those that match some pattern, you should use listDomains() and measure 
+the size of the returned list.
 
 =cut
 
@@ -222,6 +223,7 @@ and only return the number of domins that match that pattern.
 sub numDomains(){
 	my $self = shift;
 	my $query = "select count(*) from $self->{tables}->{domain}";
+	$self->{infostr} = $query;
 	my $numDomains = ($self->{dbi}->selectrow_array($query))[0];
 	$numDomains--;	# since there's an 'ALL' domain in the db
 	$self->{_numDomains} = $numDomains;
@@ -232,8 +234,9 @@ sub numDomains(){
 
 =item numUsers()
 
-Returns the number of configured users. If a domain is set (with setDomain() ) it will only return users 
-configured on that domain. If not, it will return all the users.
+Returns the number of configured users. If a domain is set (with setDomain() ) it will only return users configured on that domain. If not, 
+it will return all the users. If you'd like only those that match some pattern, you should use listUsers() and measure the size of the returned
+list.
 
 =cut
 
@@ -249,8 +252,8 @@ sub numUsers(){
 		$query = "select count(*) from `$self->{tables}->{alias}`";
 	}
 	my $numUsers = ($self->{dbi}->selectrow_array($query))[0];
+	$self->{infostr} = $query;
 	return $numUsers;
-	return $query;
 }
 
 =item listDomains() 
@@ -274,6 +277,7 @@ sub listDomains(){
 			push(@domains, $row[0]) unless $row[0] =~ /^ALL$/;
 		}
 	}
+	$self->{infostr} = $query;
 	return @domains;
 }
 
@@ -304,6 +308,7 @@ sub listUsers(){
 			push(@users, $row[0]);
 		}
 	}
+	$self->{infostr} = $query;
 	return @users;
 }
 
@@ -323,7 +328,7 @@ sub domainExists(){
 	my $sth = $self->{dbi}->prepare($query);
 	$sth->execute;
 	my $count = ($sth->fetchrow_array())[0];
-
+	$self->{infostr} = $query;
 	if ($count > 0){
 		return 0;
 	}else{
@@ -338,15 +343,12 @@ sub userExists(){
 	my $sth = $self->{dbi}->prepare($query);
 	$sth->execute;
 	my $count = ($sth->fetchrow_array())[0];
-	#return $count
-
-
+	$self->{infostr} = $query;
 	if ($count > 0){
 		return $count;
 	}else{
 		return;
 	}
-
 }
 
 
@@ -395,7 +397,7 @@ sub getUserInfo(){
 		my $info = $$userinfo{$theirname};
 		$return{$myname} = $info;
 	}
-
+	$self->{infostr} = $query;
 	return %return;
 }
 
@@ -405,7 +407,6 @@ sub getUserInfo(){
 
 Returns a hash containing info about the domain. The keys are the same as the internally-used names for the fields
 in the SQL (as you can find from getFields and getTables), with a couple of additions:
-
 
 	domain		The domain name (hopefully redundant)
 	description	Content of the description field
@@ -427,16 +428,9 @@ Domain needs to have been set by setDomain() previously.
 
 sub getDomainInfo(){
 	my $self = shift;
-	my $domain;
-	if($self->{_domain}){
-		$domain = $self->{_domain};
-	}else{
-		$domain = shift;
-	}
-	my %domiaininfo;
+	my $domain = $self->{_domain};
 	my $query = "select * from `$self->{tables}->{domain}` where $self->{fields}->{domain}->{domain} = '$domain'";
 	my $domaininfo = $self->{dbi}->selectrow_hashref($query);
-
 	
 	# This is exactly the same data acrobatics as getUserInfo() above, to get consistent
 	# output:
@@ -449,10 +443,10 @@ sub getDomainInfo(){
 		my $info = $$domaininfo{$theirname};
 		$return{$myname} = $info;
 	}
-#	$return{dominfo_query}=$query;
+	$self->{infostr} = $query;
 
 	$query = "select username from `$self->{tables}->{mailbox}` where $self->{fields}->{mailbox}->{domain} = '$domain'";
-
+	$self->{infostr}.=";".$query;
 	my $sth = $self->{dbi}->prepare($query);
 	$sth->execute;
 	my @mailboxes;
@@ -462,7 +456,6 @@ sub getDomainInfo(){
 	
 	$return{mailboxes} = \@mailboxes;
 	$return{num_mailboxes} = scalar @mailboxes;
-#	$return{mailbox_query}=$query;
 	
 	return %return;
 }
@@ -503,7 +496,7 @@ sub changePassword(){
 	my $cryptedPassword = $self->cryptPassword($password);
 
 	my $query = "update `$self->{tables}->{mailbox}` set `$self->{fields}->{mailbox}->{password}`=? where `$self->{fields}->{mailbox}->{username}`='$user'";
-
+	$self->{infostr} = $query;
 	my $sth = $self->{dbi}->prepare($query);
 	$sth->execute($cryptedPassword);
 	return $cryptedPassword;
@@ -526,6 +519,8 @@ sub changeCryptedPassword(){
 
 	my $sth = $self->{dbi}->prepare($query);
 	$sth->execute($cryptedPassword);
+
+	$self->{infostr} = $query;
 	return $cryptedPassword;
 }
 
@@ -541,23 +536,42 @@ Expects to be passed a hash of options, with the keys being the same as those ou
 are necessary (provided setDomain() has been called). If the 'domain' key is passed, setDomain need not have been 
 called previously.
 
-Defaults are currently exactly what the db sets - no processing is done at all of the input before dumping it into
-the db.
+Defaults are set as follows:
 
+	domain		The domain as set with setDomain. Errors without this
+	description	A null string
+	quota		MySQL's default
+	transport	'virtual'
+	active		1 (active)
+	backupmx0	MySQL's default
+	modified	now
+	created		now
+	aliases		MySQL's default
+	maxquota	MySQL's default
+
+Defaults are only set on keys that haven't been instantiated. If you set a key to undef or a null string, it will
+not be set to the default - null will be passed to the DB and it may set its own default.
+
+On both success and failure, the function will return a hash containing the options used to configure the domain - 
+you can inspect this to see which defaults were set.
 
 =cut
 
 sub createDomain(){
 	my $self = shift;
-	my %options = @_;
+	my %opts = @_;
 	my $fields;
 	my $values;
-	$options{domain} = $self->{_domain};
-	$options{modified} = $self->_mysqlNow;
-	$options{created} = $self->_mysqlNow;
-	foreach(keys(%options)){
+	$opts{domain} = $self->{_domain} unless exists($opts{domain});
+	$opts{modified} = $self->_mysqlNow unless exists($opts{modified});
+	$opts{created} = $self->_mysqlNow unless exists($opts{created});
+	$opts{active} = '1' unless exists($opts{active});
+
+	$opts{transport} = 'virtual' unless exists($opts{quota});
+
+	foreach(keys(%opts)){
 		$fields.= $self->{fields}->{domain}->{$_}.", ";
-		$values.= "'$options{$_}', ";;
+		$values.= "'$opts{$_}', ";;
 	}
 	$fields =~ s/, $//;
 	$values =~ s/, $//;
@@ -565,6 +579,8 @@ sub createDomain(){
 	$query.= " ( $fields ) values ( $values )";
 	my $sth = $self->{dbi}->prepare($query);
 	$sth->execute();	
+	$self->{infostr} = $query;
+	return %opts;
 }
 
 =item createUser()
@@ -578,28 +594,22 @@ is passed it will be crypted with cryptPasswd() and then inserted.
 
 Defaults are mostly sane where values aren't explicitly passed:
 
-=over
 
-=item * password and name each default to null
-
-=item * maildir is created by appending a '/' to the username
-
-=item * quota adheres to MySQL's default (which is normally zero, meaning infinite)
-
-=item * local_part is the part to the left of the '@' in the username
-
-=item * domain is the part after the '@' of the username
-
-=item * created is set to now
-
-=item * modified is set to now
-
-=item * active adheres to MySQL's default (which is normally '1')
-
-=back
+ password	null
+ name		null
+ maildir 	username with a '/' appended to it
+ quota		MySQL default (normally zero)
+ local_part	the part of the username to the left of the first '@'
+ domain		the part of the username to the right of the last '@'
+ created	now
+ modified	now
+ active		MySQL's default
 
 These are only set if they fail an exists() test; if undef is passed, it will not be clobbered - null 
 will be written to MySQL and it will take care of any defaults.
+
+On both success and failure, the function will return a hash containing the options used to configure the user - 
+you can inspect this to see which defaults were set.
 
 =cut
 
@@ -651,6 +661,8 @@ sub createUser(){
 	$query.= " ( $fields ) values ( $values )";
 	my $sth = $self->{dbi}->prepare($query);
 	$sth->execute();	
+	$self->{infostr} = $query;
+	return %opts;
 }
 
 =back
@@ -665,7 +677,7 @@ Removes the user set in setUser()
 
 =cut
 
-##Todo: Accept a hash of field=>MySQL regex  with which to define users to delete
+##Todo: Accept a hash of field=>MySQL regex with which to define users to delete
 sub removeUser(){
 	my $self = shift;
 	my $username = $self->{_user};
@@ -675,6 +687,7 @@ sub removeUser(){
 	my $query = "delete from $self->{tables}->{mailbox} where $self->{fields}->{mailbox}->{username} = '$username'";
 	my $sth = $self->{dbi}->prepare($query);
 	$sth->execute();
+	$self->{infostr} = $query;
 }
 
 =item removeDomain()
@@ -687,7 +700,7 @@ sub removeDomain(){
 	my $self = shift;
 	my $domain = $self->{_domain};
 	if ($domain eq ''){
-		Carp::croak "No domain set - try using setDomain()";
+		Carp::croak "No domain set - you probably need to setDomain()";
 	}
 	my @users = $self->listUsers();
 	foreach(@users){
@@ -697,6 +710,7 @@ sub removeDomain(){
 	$self->{user} = undef;
 	my $query = "delete from $self->{tables}->{domain} where $self->{fields}->{domain}->{domain} = '$domain'";
 	my $sth = $self->{dbi}->prepare($query);
+	$self->{infostr} = $query;
 	$sth->execute;
 }
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -836,7 +850,11 @@ sub _mysqlNow() {
 
 =head1 CLASS VARIABLES
 
-There aren't any. If you're using class variables you've done something wrong.
+$d->errstr contains the error message of the last action. If it's empty (i.e. ($d->errstr eq '') then it should be safe to assume
+nothing went wrong.
+$d->infostr sometimes contains an informative string about the last action, generally the last MySQL query run
+
+$d->dbi is the dbi object used by the rest of the module, having guessed/set the appropriate credentials.
 
 =head1 DIAGNOSTICS
 
