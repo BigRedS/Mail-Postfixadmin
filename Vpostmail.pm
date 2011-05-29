@@ -987,7 +987,7 @@ It also populated when trying to create something that exists, or delete somethi
 
 $d->dbi is the dbi object used by the rest of the module, having guessed/set the appropriate credentials.
 
-=cut 
+=back
 
 =head1 DIAGNOSTICS
 
