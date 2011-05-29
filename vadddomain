@@ -1,0 +1,21 @@
+#! /usr/bin/perl
+
+use Vpostmail;
+use strict;
+
+my $domain = $ARGV[0];
+
+if ($domain eq ''){
+	print "Error. I need a domain as an argument\n";
+	exit 1;
+}
+
+my $d = Vpostmail->new();
+$d->setDomain($domain);
+if($d->domainExists()){
+	print "Error: Domain $domain already exists\n";
+	exit 1;
+}
+$d->createDomain();
+
+exit;

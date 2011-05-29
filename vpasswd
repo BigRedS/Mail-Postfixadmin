@@ -1,0 +1,48 @@
+#! /usr/bin/perl
+
+use strict;
+use Vpostmail;
+
+my $user = $ARGV[0];
+my $password = $ARGV[1];
+
+my $d = Vpostmail->new();
+$d->setUser($user);
+
+if ($user eq ''){
+        print "Error. I need a user as an argument\n";
+        exit 1;
+}
+if (!$d->userExists()){
+	print "ERROR user $user doesn't exist\n";
+	exit 1;
+}
+
+while ($password eq ''){
+	$password = &getPassword()
+}
+
+$d->changePassword($password);
+
+
+
+sub getPassword(){
+	my $pass1;
+	my $pass2;
+	print "Enter password ";
+	system('stty','-echo');
+	chop($pass1=<STDIN>);
+	system('stty','echo');
+	print "\nConfirm password ";
+	system('stty','-echo');
+	chop($pass2=<STDIN>);
+	system('stty','echo');
+
+	if ($pass1 eq $pass2){
+		print "\n";
+		return $pass1;
+	}else{
+		print "\npasswords do not match, try again:\n";
+		return;
+	}
+};

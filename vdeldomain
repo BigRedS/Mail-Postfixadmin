@@ -1,0 +1,15 @@
+#! /usr/bin/perl
+
+use Vpostmail;
+use strict;
+
+my $domain = $ARGV[0];
+if ($domain eq ''){
+	print "Error: I need a domain\n";
+	exit 1;
+}
+
+my $d = Vpostmail->new();
+$d->setDomain($domain);
+$d->removeDomain();
+

@@ -1,0 +1,15 @@
+#! /usr/bin/perl
+
+use Vpostmail;
+use strict;
+
+my $user = $ARGV[0];
+if ($user eq ''){
+        print "Error: I need a user\n";
+        exit 1;
+}
+
+my $d = Vpostmail->new();
+$d->setUser($user);
+$d->removeUser();
+

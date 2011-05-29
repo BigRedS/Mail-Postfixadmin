@@ -1,0 +1,22 @@
+! /usr/bin/perl
+
+use Vpostmail;
+use strict;
+
+my $user = $ARGV[0];
+
+if ($user eq ''){
+        print "Error. I need a user as an argument\n";
+        exit 1;
+}
+
+my $d = Vpostmail->new();
+$d->setUser($user);
+if($d->userExists()){
+        print "Error: User $user already exists\n";
+        exit 1;
+}
+$d->createUser();
+
+exit;
+

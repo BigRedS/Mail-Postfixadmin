@@ -1,0 +1,21 @@
+#! /usr/bin/perl
+
+use strict;
+use Vpostmail;
+
+my $domain = $ARGV[0];
+if ($domain eq ''){
+	print "Error: I need a domain\n";
+	exit 1;
+}
+
+my $d = Vpostmail->new();
+$d->setDomain($domain);
+my %info = $d->getDomainInfo();
+foreach(sort(keys(%info))){
+	unless($_ =~ /^mailboxes$/){
+		printf('%-14s%s', $_, $info{$_});
+		print "\n";
+	}
+}
+

@@ -1,0 +1,23 @@
+#! /usr/bin/perl
+
+use strict;
+use Vpostmail;
+
+
+my $user = $ARGV[0];
+if ($user eq ''){
+	print "Error: I need a user\n";
+	exit 1;
+}
+
+my $d = Vpostmail->new();
+$d->setUser($user);
+my %info = $d->getUserInfo();
+foreach(sort(keys(%info))){
+	unless($_ =~ /^mailboxes$/){
+		printf('%-14s%s', $_, $info{$_});
+		print "\n";
+	}
+}
+
+
