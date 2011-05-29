@@ -39,8 +39,13 @@ Vpostmail - Interferes with a Postfix/Dovecot/MySQL system
 
 =head1 REQUIRES
 
-Perl 5.8, perhaps earlier
+Perl 5.10  (even Lenny ships with 5.10)
+
 Crypt::PasswdMD5 (libcrypt-passwdmd5-perl in Debian)
+
+Carp
+
+DBI (libdbi-perl in Debian)
 
 =head1 DESCRIPTION
 
@@ -135,7 +140,9 @@ the left-hand-side (bob). These two are equivalent:
 
 Note that this behaviour depends upon the argument to setUser, not only the set-ness of a domain. If no domain is 
 set, then the argument to setUser is always assumed to be the whole username.
-If a domain is set, then if the argument to SetUser contains an '@' it is assumed to be the whole username, else only
+
+If a domain is set, then the argument is assumed to be a whole email address if it contains a '@', else it's assumed
+to be a left-hand-side only.
 
 =cut
 
@@ -198,11 +205,11 @@ sub unsetUser(){
 	return $return;
 }
 
+=back
 
 =head2 User and domain information
 
-None of these expect arguments, or do anything with any argument they're supplied. They will, one day, accept a regex 
-as their only argument, having applied the regex sensibly to their normal return values.
+=over 0
 
 =item numDomains()
 
@@ -221,12 +228,12 @@ sub numDomains(){
 	return $self->{_numDomains};
 }
 
+=over
+
 =item numUsers()
 
 Returns the number of configured users. If a domain is set (with setDomain() ) it will only return users 
 configured on that domain. If not, it will return all the users.
-
-If passed a regex, it should (but doesn't yet) only return the part of that list that matches the regex.
 
 =cut
 
@@ -246,28 +253,43 @@ sub numUsers(){
 	return $query;
 }
 
-=item listDomains() and listUsers()
+=item listDomains() 
 
-Work in the same way as their count counterparts above, but return a list rather than just how many there are. 
+Returns a list of domains on the system. You may pass a regex as an argument, and only those domains matching that regex are supplied. There's 
+no way of passing options, and the regex is matched case-sensitively - you need to build insensitivity in to the pattern if you want it.
 
 =cut
 
-##Todo: make the above line true
 sub listDomains(){
 	my $self = shift;
+	my $regex = shift;
+	my $regexOpts = shift;
 	my $query;
 	my $query = "select domain from $self->{tables}->{domain}";
 	my $sth = $self->{dbi}->prepare($query);
 	$sth->execute;
 	my @domains;
 	while(my @row = $sth->fetchrow_array()){
-		push(@domains, $row[0]) unless $row[0] =~ /^ALL$/;
+		if ($row[0] =~ /$regex/){
+			push(@domains, $row[0]) unless $row[0] =~ /^ALL$/;
+		}
 	}
 	return @domains;
 }
 
+
+=item listDomains() 
+
+Returns a list of users on the system (or, if it's previously been defined, the domain). 
+
+You may pass a regex as an argument, and only those users matching that regex are supplied. There's no way of passing options, and the regex is 
+matched case-sensitively - you need to build insensitivity in to the pattern if you want it.
+
+=cut
+
 sub listUsers(){
 	my $self = shift;
+	my $regex = shift;
 	my $query;
 	if ($self->{_domain}){
 		$query = "select $self->{fields}->{alias}->{address} from $self->{tables}->{alias} where $self->{fields}->{alias}->{domain} = \'$self->{_domain}\'";
@@ -278,7 +300,9 @@ sub listUsers(){
 	$sth->execute;
 	my @users;
 	while(my @row = $sth->fetchrow_array()){
-		push(@users, $row[0]);
+		if($row[0] =~ /$regex/){
+			push(@users, $row[0]);
+		}
 	}
 	return @users;
 }
@@ -442,8 +466,11 @@ sub getDomainInfo(){
 	
 	return %return;
 }
+=back
 
 =head2 Passwords
+
+=over 
 
 =item cryptPassword()
 
@@ -502,7 +529,11 @@ sub changeCryptedPassword(){
 	return $cryptedPassword;
 }
 
+=back 
+
 =head2 Creating things
+
+=over
 
 =item createDomain()
 
@@ -622,7 +653,11 @@ sub createUser(){
 	$sth->execute();	
 }
 
+=back
+
 =head2 Deleting things
+
+=over
 
 =item removeUser();
 
@@ -705,6 +740,8 @@ sub _dbConnection(){
         my $dbh = DBI->connect("DBI:mysql:$db{'name'}:host=$db{'host'}", $db{'user'}, $db{'pass'}) || die "Could not connect to database: $DBI::errstr";
         return $dbh
 }
+
+=back 
 
 =head2 Setting the DB environment
 
@@ -805,11 +842,6 @@ There aren't any. If you're using class variables you've done something wrong.
 
 There is no error checking and, hence, no error handling. Good luck!
 
-=head1 AUTHOR
-
-Avi Greenbury avi <@> avi.co
-
 =cut
-
 
 1
