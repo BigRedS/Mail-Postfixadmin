@@ -8,6 +8,8 @@ use Crypt::PasswdMD5;	# libcrypt-passwdmd5-perl
 
 ##Todo: detect & support different password hashes
 
+=pod
+
 =head1 Vpostmail.pm
 
 A module for interfering with a Postfix/Dovecot/MySQL system
@@ -20,11 +22,16 @@ A module for interfering with a Postfix/Dovecot/MySQL system
 	$d->setUser("foo@example.org");
 	$d->createUser;
 
+	my %dominfo = $d->getDomainInfo();
+
+
 =head1 Description
 
-Vpostmail is an attempt to provide the tools for making same command line tools as provided in Vpopmail, but for a 
-Postfix/Dovecot/MySQL environment. Alternatively, it's an attempt to provide a command-line version of postfixadmin.
+Vpostmail is an attempt to provide a whole bunch of neat functiosn that wrap around the tedious SQL involved
+in interfering with a Postfix/Dovecot/MySQL virtual mailbox mail system. It can probably be used on others
+so long as the DB schema is similar enough.
 
+It's _very_much_ still in development. All sorts of things will change :)
 
 =cut
 
@@ -42,16 +49,26 @@ sub new() {
 	return $self;
 }
 
+=pod
+
 =item getTables() and setTables(), and getFields() and setFields()
 
 Internally, the db schema is stored in two hashes. 
-getTables() returns a hash where the keys 
-are the values used internally to refer to the tables, and the values are the names of the tables in the SQL. 
-getFields returns a hash of hashes. The 'top' hash has as keys the internal names for the tables (as found in 
-getTables()), with the values being hashes representing the tables. Here, the key is the name as used internally, 
+
+%_tables is a hash storing the names of the tables. The keys are the values used internally to refer to the 
+tables, and the values are the names of the tables in the db.
+
+%_fields is a hash of hashes. The 'top' hash has as keys the internal names for the tables (as found in 
+getTables), with the values being hashes representing the tables. Here, the key is the name as used internally, 
 and the value the names of those fields in the SQL.
 
-It's only prepopulated with those values that the module is written to use. 
+getFields returns %_fields, getTables %_tables. setFields and setTables resets them to the hash passed as an 
+argument. It does not merge the two hashes.
+
+This is the only way you should be interfering with those hashes.
+
+Since the module does no guesswork as to the db schema (yet), you might need to use these to get it to load 
+yours. Even when it does do that, it might guess wrongly.
 
 =cut
 
@@ -76,11 +93,32 @@ sub setFields(){
 	return $self->{fields};
 }
 
+=pod 
 
+=item getDomain() and setDomain(), and getUser() and setUser()
 
-=item getDomain, setDomain, unsetDomain
+Anything that operates on a domain or a user will expect the object's user or domain to have already been set with 
+one of these. setUser may either be passed the full username (bob@example.org) or, if a domain is already set, just 
+the left-hand-side (bob). These two are equivalent:
 
-These are mostly useless and can be safely ignored
+$d->setDomain('example.org');
+$d->setUser('bob');
+
+$d->setUser('bob@example.org');
+
+Note that this behaviour depends upon the argument to setUser, not only the set-ness of a domain. If no domain is 
+set, then the argument to setUser is always assumed to be the whole username.
+If a domain is set, then if the argument to SetUser contains an '@' it is assumed to be the whole username, else only
+the left hand side. 
+
+The setters return the value they've set, so these are equivalent:
+
+  $d->setDomain('example.org');
+  print $d->getDomain();
+
+  print $d->setDomain('example.org');
+
+in that both will print 'example.org'
 
 =cut
 
@@ -94,12 +132,6 @@ sub setDomain(){
 	my $domain = shift;
 	$self->{_domain} = $domain;
 	return $self->{_domain};
-}
-
-sub unsetDomain(){
-	my $self = shift;
-	$self->{_domain} = undef;
-	return $self->{_domain}
 }
 
 sub getUser(){
@@ -117,11 +149,43 @@ sub setUser(){
 	return $self->{_user};
 }
 
+=item unsetDomain() and unsetUser()
 
-=item numdomains()
+Sets the domain or the user to undef. Returns the previous value of the variable, rather than the set variable,
+as per the setters. So:
+
+  $d->setDomain('example.org')
+  print $d->setDomain(undef);
+
+will print undef, whereas
+
+  $d->setDomain('example.org)
+  print $d->unsetDomain();
+
+will print 'example.org'
+
+=cut
+
+sub unsetDomain(){
+	my $self = shift;
+	my $return = $self->{_domain};
+	$self->{_domain} = undef;
+	return $return;
+}
+
+
+sub unsetUser(){
+	my $self = shift;
+	my $return = $self->{_domain};
+	$self->{_domain} = undef;
+	return $return;
+}
+
+=item numDomains()
 
 Returns the number of domains configured on the server. Will, one day, accept a regular expression as an argument
 and only return the number of domins that match that pattern.
+
 =cut
 
 ##Todo: Accept a regex to match
@@ -135,17 +199,19 @@ sub numDomains(){
 }
 
 =item numUsers()
-Returns the number of configured users. If a domain is set (say, with setDomain() ) it will only return users 
+
+Returns the number of configured users. If a domain is set (with setDomain() ) it will only return users 
 configured on that domain. If not, it will return all the users.
 
 If passed a regex, it should (but doesn't yet) only return the part of that list that matches the regex.
 
 =cut
+
 ##Todo: make the above true
 sub numUsers(){
 	my $self = shift;
 	my $query;
-	$domain = $self->{_domain}
+	my $domain = $self->{_domain};
 
 	if ($domain){
 		$query = "select count(*) from `$self->{tables}->{alias}` where $self->{fields}->{alias}->{domain} = \'$self->{_domain}\'"
@@ -157,7 +223,7 @@ sub numUsers(){
 	return $query;
 }
 
-=item listDomains and listUsers
+=item listDomains() and listUsers()
 
 Work in the same way as their count counterparts above, but return the list rather than the count.
 
@@ -196,10 +262,12 @@ sub listUsers(){
 
 }
 
-=item domainExists and userExists
+=item domainExists() and userExists()
 
-Checks for the existence of a user or a domain. Should be set by the setUser or setDomain. At some point, it'll
-accept a hash of things to check for, but I need to work out how that should work before it will.
+Checks for the existence of a user or a domain. Accepts no arguments - the user or domain should be set with setUser() or 
+setDomain()
+
+When it does accept an argument, it will be a hash of search terms, the precise mechanics of which I've yet to decide upon.
 
 =cut
 
@@ -226,14 +294,25 @@ sub userExists(){
 }
 
 
-
-
-=item getUserInfo
+=item getUserInfo()
 
 Returns a hash containing info about the user. The keys are the same as the internally-used names for the fields
 in the SQL (as you can find from getFields and getTables).
 
-User should be set by setUser.
+The hash keys are essentially the same as those found by getFields:
+
+	username	The username. Hopefully redundant.
+	password	The crypted password of the user
+	name		The human name associated with the username
+	domain		Teh domain the user is associated with
+	local_part	The local part of the email address
+	maildir		The path to the maildir *relative to the maildir root configured in Postfix/Dovecot*
+	active		Whether or not the user is active
+	created		Creation data
+	modified	Last modified data
+
+
+User needs to have been set by setUser() previously.
 
 =cut
 
@@ -266,12 +345,29 @@ sub getUserInfo(){
 
 
 
-=item getDomainInfo
+=item getDomainInfo()
 
 Returns a hash containing info about the domain. The keys are the same as the internally-used names for the fields
-in the SQL (as you can find from getFields and getTables).
+in the SQL (as you can find from getFields and getTables), with a couple of additions:
 
-Domain should be set by setDomain.
+
+	domain		The domain name (hopefully redundant)
+	description	Content of the description field
+	quota		Mailbox size quota
+	transport	Postfix transport (usually virtual)
+	active		Whether the domain is active or not
+	backupmx0	Whether this is a  backup MX for the domain
+	mailboxes	Array of mailbox usernames associated with the domain (note: the full username, not just the local part)
+	modified	last modified date 
+	num_mailboxes   Count of the mailboxes (effectively, the length of the array in mailboxes)
+	created		Creation data
+	dominfo_query   The query used to get the domain info
+	aliases		Alias quota for the domain
+	maxquota	Mailbox quota for teh domain
+	mailbox_query	Query used to get the mailboxes for the domain
+
+
+Domain needs to have been set by setDomain() previously.
 
 =cut
 
@@ -319,7 +415,7 @@ sub getDomainInfo(){
 
 
 
-=item cryptPassword and changePassword
+=item cryptPassword() and changePassword()
 
 changePassword changes the password of a user. The user should be set with setUser and the cleartext password 
 passed as an argument. It returns the encrypted password as written to the DB. 
@@ -352,7 +448,7 @@ sub changePassword(){
 	return $cryptedPassword;
 }
 
-=item addDomain
+=item addDomain()
 
 Should work like addUser but doesn't. Accepts a hash of setings, but doesn't really care what they are.
 
@@ -400,21 +496,25 @@ is passed it will be crypted with cryptPasswd()
 
 Defaults are mostly sane where values aren't explicitly passed:
 
-=item  * password and name each default to null
+=over
 
-=item  * maildir is created by appending a '/' to the username
+=item * password and name each default to null
 
-=item  * quota adheres to MySQL's default (which is normally zero, meaning infinite)
+=item * maildir is created by appending a '/' to the username
 
-=item  * local_part is the part to the left of the '@' in the username
+=item * quota adheres to MySQL's default (which is normally zero, meaning infinite)
 
-=item  * domain is the part after the '@' of the username
+=item * local_part is the part to the left of the '@' in the username
 
-=item  * created is set to now
+=item * domain is the part after the '@' of the username
 
-=item  * modified is set to now
+=item * created is set to now
 
-=item  * active adheres to MySQL's default (which is normally '1')
+=item * modified is set to now
+
+=item * active adheres to MySQL's default (which is normally '1')
+
+=back
 
 These are only set if they fail an exists() test; if undef is passed, it will not be clobbered - null 
 will be written to MySQL and it will take care of any defaults.
@@ -569,6 +669,8 @@ sub _fields(){
 	return %fields;
 }
 
+# Returns a timestamp of its time of execution in a format ready for inserting into MySQL
+# (YYYY-MM-DD hh:mm:ss)
 sub _mysqlNow() {
 	
 	my ($y,$m,$d,$hr,$mi,$se)=(localtime(time))[5,4,3,2,1,0];
