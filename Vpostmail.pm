@@ -329,6 +329,9 @@ sub domainExists(){
 	my $self = shift;
 	my $domain;
 	$domain = $self->{_domain};
+	if ($domain eq ''){
+		Carp::croak "No domain set";
+	}
 	my $query = "select count(*) from $self->{tables}->{domain} where $self->{fields}->{domain}->{domain} = \'$domain\'";
 	my $sth = $self->{dbi}->prepare($query);
 	$sth->execute;
@@ -344,6 +347,9 @@ sub domainExists(){
 sub userExists(){
 	my $self = shift;
 	my $user = $self->{_user};
+	if ($user eq ''){
+		Carp::croak "No user set";
+	}
 	my $query = "select count(*) from $self->{tables}->{mailbox} where $self->{fields}->{mailbox}->{username} = '$user'";
 	my $sth = $self->{dbi}->prepare($query);
 	$sth->execute;
@@ -386,6 +392,9 @@ sub getUserInfo(){
 	my $self = shift;
 	my $user;
 	$user = $self->{_user};
+	if ($user eq ''){
+		Carp::croak "No user set";
+	}
 	my %userinfo;
 	my $query = "select * from `$self->{tables}->{mailbox}` where $self->{fields}->{mailbox}->{username} = '$user'";
 	my $userinfo = $self->{dbi}->selectrow_hashref($query);
@@ -438,6 +447,11 @@ sub getDomainInfo(){
 	my $self = shift;
 	my $domain = $self->{_domain};
 	my $query = "select * from `$self->{tables}->{domain}` where $self->{fields}->{domain}->{domain} = '$domain'";
+
+	if ($domain eq ''){
+		Carp::croak "No domain set";
+	}
+
 	my $domaininfo = $self->{dbi}->selectrow_hashref($query);
 	
 	# This is exactly the same data acrobatics as getUserInfo() above, to get consistent
@@ -498,7 +512,9 @@ sub changePassword(){
 	my $self = shift;
 	my $user = $self->{_user};
 	my $password = shift;
-
+	if ($user eq ''){
+		Carp::croak "No user set";
+	}
 	
 	my $cryptedPassword = $self->cryptPassword($password);
 
@@ -520,6 +536,10 @@ into the database.
 sub changeCryptedPassword(){
 	my $self = shift;
 	my $user = $self->{_user};
+
+	if ($user eq ''){
+		Carp::croak "No user set";
+	}
 	my $cryptedPassword = shift;
 
 	my $query = "update `$self->{tables}->{mailbox}` set `$self->{fields}->{mailbox}->{password}`=? where `$self->{fields}->{mailbox}->{username}`='$user'";
@@ -576,8 +596,9 @@ sub createDomain(){
 	$opts{domain} = $self->{_domain} unless exists($opts{domain});
 	$self->{_domain} = $opts{domain};
 	if($self->{_domain} eq ''){
-		Carp::croak "No domain supplied";
+		Carp::croak "No domain set";
 	}
+
 	if ($self->domainExists()){
 		$self->{infostr} = "Domain already exists ($self->{_domain})";
 		return 2;
@@ -649,7 +670,7 @@ sub createUser(){
 	$opts{username} = $self->{_user} unless (exists $opts{username});
 	$self->{_user} = $opts{username};
 	if($self->{_user} eq ''){
-		Carp::croak "user not set";;
+		Carp::croak "No user set";
 	}
 	if($self->userExists()){
 		$self->{infostr} = "User already exists ($self->{_user})";
@@ -688,7 +709,7 @@ sub createUser(){
 		}
 	}
 	if ($opts{username} eq ''){
-		Carp::croak "No username set. Either pass it in a hash, or set it with setUser";
+		Carp::croak "No user set";
 	}
 	$values =~ s/, $//;
 	$fields =~ s/, $//;
@@ -726,8 +747,8 @@ and C<infostr> is set to "user doesn't exist (<user>)";
 sub removeUser(){
 	my $self = shift;
 	my $username = $self->{_user};
-	if ($username eq ''){;
-		Carp::croak("No user set");
+	if($self->{_user} eq ''){
+		Carp::croak "No user set";
 	}
 	if (!$self->userExists){
 		$self->{infostr} = "User doesn't exist ($self->{_user}) ";
