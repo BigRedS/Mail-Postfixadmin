@@ -71,6 +71,7 @@ sub new() {
 	my $class = shift;
 	my $self = {};
 	bless($self,$class);
+	$self->{dbCredentials};
 	$self->{configFiles}->{'postfix'} = '/etc/postfix/main.cf';
 	$self->{dbi} = &_dbConnection('/etc/postfix/main.cf');
 	$self->{errstr};
@@ -332,6 +333,9 @@ sub domainExists(){
 	if ($domain eq ''){
 		Carp::croak "No domain set";
 	}
+	if($self->domainIsAlias){
+		return $?;
+	}
 	my $query = "select count(*) from $self->{tables}->{domain} where $self->{fields}->{domain}->{domain} = \'$domain\'";
 	my $sth = $self->{dbi}->prepare($query);
 	$sth->execute;
@@ -362,7 +366,41 @@ sub userExists(){
 	}
 }
 
+sub domainIsAlias(){
+	my $self = shift;
+	my $domain = $self->{_domain};
+	if ($domain eq ''){
+		Carp::croak "No domain set";
+	}
+	my $query = "select count(*) from $self->{tables}->{alias_domain} where $self->{fields}->{alias_domain}->{alias_domain} = '$domain'";
+	my $sth = $self->{dbi}->prepare($query);
+	$sth->execute;
+	my $count = ($sth->fetchrow_array())[0];
+	$self->{infostr} = $query;
+	if ($count > 0){
+		return $count;
+	}else{
+		return;
+	}
+}
 
+sub domainIsTarget(){
+	my $self = shift;
+	my $domain = $self->{_domain};
+	if ($domain eq ''){
+		Carp::croak "No domain set";
+	}
+	my $query = "select count(*) from $self->{tables}->{alias_domain} where $self->{fields}->{alias_domain}->{target_domain} = '$domain'";
+	my $sth = $self->{dbi}->prepare($query);
+	$sth->execute;
+	my $count = ($sth->fetchrow_array())[0];
+	$self->{infostr} = $query;
+	if ($count > 0){
+		return $count;
+	}else{
+		return;
+	}
+}
 =item getUserInfo()
 
 Returns a hash containing info about the user. The keys are the same as the internally-used names for the fields
@@ -480,6 +518,26 @@ sub getDomainInfo(){
 	
 	return %return;
 }
+
+
+sub getTargetAliases{
+	my $self = shift;
+	my $domain = $self->{_domain};
+	if ($domain eq ''){ Carp::croak "No domain set"; }
+	my $query = "select $self->{fields}->{alias_domain}->{alias_domain} from $self->{tables}->{alias_domain} where $self->{fields}->{alias_domain}->{target_domain} = '$domain'";
+	my $sth = $self->{dbi}->prepare($query);
+	$sth->execute;
+	my @aliases;
+	while(my @row = $sth->fetchrow_array){
+		push(@aliases, $row[0]);
+	}
+	if ($#aliases > 0){
+		return @aliases;
+	}else{
+		return;
+	}
+}
+
 =back
 
 =head2 Passwords
@@ -726,6 +784,46 @@ sub createUser(){
 	}
 }
 
+sub createAliasDomain {
+	my $self = shift;
+	my %opts = @_;
+	if ($self->{_domain} eq ''){
+		Carp::croak "No domain set";
+	}
+	unless(exists($opts{'target'})){
+		Carp::croak "No target passed";
+	}
+	unless($self->domainExists){
+		$self->createDomain;
+	}
+	my $fields = "$self->{fields}->{alias_domain}->{alias_domain}, $self->{fields}->{alias_domain}->{target_domain}";
+	my $values = " '$self->{_domain}', '$opts{target}'";
+	if(exists($opts{'created'})){
+		$fields.=", $self->{fields}->{alias_domain}->{created}";
+		$values=", '$opts{'created'}'";
+	}
+	if(exists($opts{'modified'})){
+		$fields.=", $self->{fields}->{alias_domain}->{modified}";
+		$values.=", $opts{'modified'}";
+	}
+	if(exists($opts{'active'})){
+		$fields.=", $self->{fields}->{alias_domain}->{active}";
+		$values.=", '$opts{'active'}'";
+	}
+	my $query = "insert into $self->{tables}->{alias_domain} ( $fields ) values ( $values )";
+	my $sth = $self->{dbi}->prepare($query);
+	$sth->execute;
+	if($self->domainExists()){
+		$self->{infostr} = $query;
+		return %opts;
+
+	}else{
+		$self->{infostr} = $query;
+		$self->{errstr} = "Everything appeared to succeed but the domain doesn't exist";
+		return;
+	}
+}
+
 =back
 
 =head2 Deleting things
@@ -794,6 +892,7 @@ sub removeDomain(){
 		$self->removeUser();
 	}
 	$self->{user} = undef;
+	my $query;
 	my $query = "delete from $self->{tables}->{domain} where $self->{fields}->{domain}->{domain} = '$domain'";
 	my $sth = $self->{dbi}->prepare($query);
 	$sth->execute;
@@ -807,6 +906,23 @@ sub removeDomain(){
 	}
 
 }
+
+sub removeAlias{
+	my $self = shift;
+	my $domain = $self->{_domain};
+	if ($domain eq ''){
+		Carp::croak "No domain set";
+	}
+	if (!$self->domainIsAlias){
+		$self->{infostr} = "Domain is not an alias ($self->{_domain})";
+		return 3;
+	}
+	my $query = "delete from $self->{tables}->{alias_domain} where $self->{fields}->{alias_domain}->{alias_domain} = '$domain'";
+	print $query;
+	my $sth = $self->{dbi}->prepare($query);
+	$sth->execute;
+}
+
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
  # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -970,6 +1086,13 @@ sub _fields(){
 	$fields{'domain_admins'} = {
 	                        'domain'        => 'domain',
 	                        'username'      => 'username'
+	};
+	$fields{'alias_domain'} = {
+				'alias_domain'	=> 'alias_domain',
+				'target_domain' => 'target_domain',
+				'created'	=> 'created',
+				'modified'	=> 'modified',
+				'active'	=> 'active'
 	};
 	return %fields;
 }
