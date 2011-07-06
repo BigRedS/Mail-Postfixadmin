@@ -6,6 +6,8 @@ use DBI;
 use Crypt::PasswdMD5;	# libcrypt-passwdmd5-perl
 use Carp;
 
+use Data::Dumper;
+
 ##Todo: detect & support different password hashes
 
 =pod
@@ -64,28 +66,78 @@ so long as the DB schema is similar enough.
 It's _very_much_ still in development. All sorts of things will change :) This is currently a todo list as much
 as it is documentation of the module.
 
+This is also completely not an object-orientated interface to the Postfix/Dovecot mailer, since it doesn't actually
+represent anything sensibly as objects. At best, it's an object-considering means of configuring it.
+
+=head1 CONSTRUCTOR AND STARTUP
+
+=item new()
+
+Creates and returns a new Vpostmail object. You want to provide some way of determining how to connect
+to the database. There are two ways:
+
+ my $d = Vpostmail->new(
+         dbi	=> 'DBI:mysql:dbname',
+	 dbuser	=> 'username',
+	 dbpass => 'password'
+ )
+
+Which essentially is the three arguments to a DBI->connect(). Alternatively, you can pass the location
+of postfix's main.cf file:
+
+ my $d = Vpostmail->new(
+ 	 maincf	=> '/etc/postfix/main.cf'
+ )
+
+In which case the file passed as an argument is parsed for a line specifying a file containing MySQL 
+configuration, which is then itself parsed to get the connection info. This is still somewhat crap and
+should be made more robust and flexible.
+
+If main.cf is passed, the dbi, dbuser and dbpass values are ignored (and overwritten) by data found 
+in the files. main.cf is deemed to have been 'passed' if its value contains a forward-slash ('/').
+
 =cut
 
 package Vpostmail;
 sub new() {
 	my $class = shift;
+	my %params = @_;
 	my $self = {};
-	bless($self,$class);
-	$self->{dbCredentials};
-	$self->{configFiles}->{'postfix'} = '/etc/postfix/main.cf';
-	$self->{dbi} = &_dbConnection('/etc/postfix/main.cf');
+
+	foreach(keys(%params)){
+		$self->{_params}->{$_} = $params{$_};
+	}
 	$self->{errstr};
 	$self->{infostr};
 	my %_tables = &_tables;
 	$self->{tables} = \%_tables;
 	my %_fields = &_fields;
 	$self->{fields} = \%_fields;
+	if($self->{_params}->{maincf} =~ m@/@){
+		my @stuff = _dbiStuff($self->{_params}->{maincf});
+		$self->{_params}->{dbi} = $stuff[0];
+		$self->{_params}->{dbuser} = $stuff[1];
+		$self->{_params}->{dbpass} = $stuff[2];
+	}
+	$self->{dbi} = DBI->connect(
+			$self->{_params}->{dbi},
+			$self->{_params}->{dbuser},
+			$self->{_params}->{dbpass}
+	);
+	bless($self,$class);
 	return $self;
 }
 
 =head1 METHODS
 
 =cut
+sub getOptions{
+	my $self = shift;
+	my %params = %{$self->{_params}};
+	foreach(keys(%params)){
+		print("$_\t=> $params{$_}\n");
+	}
+}
 
 sub getTables(){
 	my $self = shift;
@@ -155,6 +207,7 @@ set, then the argument to C<setUser> is always assumed to be the whole username.
 If a domain is set, then the argument is assumed to be a whole email address if it contains a '@', else it's assumed
 to be a left-hand-side only.
 
+=item get
 =cut
 
 sub getDomain(){
@@ -216,6 +269,22 @@ sub unsetUser(){
 	return $return;
 }
 
+
+
+=item getdbCredentials()
+
+Returns a hash of the db Credentials as expected by the constructor. Keys are C<dbi> C<dbuser> and C<dbpass>. 
+These are the three arguments for the DBI constructor; C<dbi> is the fill connection string (including C<DBI:mysql> at the beginning.
+
+=cut
+sub getdbCredentials{
+	my $self = shift;
+	my %return;
+	foreach(qw/dbi dbuser dbpass/){
+		$return{$_} = $self->{_params}{$_};
+	}
+	return %return;
+}
 =back
 
 =head2 User and domain information
@@ -366,6 +435,13 @@ sub userExists(){
 	}
 }
 
+=item domainIsAlias()
+
+Checks whether the currently set domain is an alias domain. Returns the amount of 'targets' the 
+domain has been configured as an alias to. This should only ever be 0 or 1 in normal use.
+
+=cut
+
 sub domainIsAlias(){
 	my $self = shift;
 	my $domain = $self->{_domain};
@@ -384,6 +460,13 @@ sub domainIsAlias(){
 	}
 }
 
+=item domainIsTarget()
+
+Checks whether the currently set domain is the target of an alias domain. Returns the amount of 
+aliases that have the set domain as their targets
+
+=cut
+
 sub domainIsTarget(){
 	my $self = shift;
 	my $domain = $self->{_domain};
@@ -401,6 +484,7 @@ sub domainIsTarget(){
 		return;
 	}
 }
+
 =item getUserInfo()
 
 Returns a hash containing info about the user. The keys are the same as the internally-used names for the fields
@@ -519,6 +603,12 @@ sub getDomainInfo(){
 	return %return;
 }
 
+=item getTargetAliases()
+
+Returns a list of aliases for the target currently set as the domain. Returns false if the domain is not
+listed as a target, an empty list if the domain is listed as a target, but the alias is NULL.
+
+=cut
 
 sub getTargetAliases{
 	my $self = shift;
@@ -784,6 +874,25 @@ sub createUser(){
 	}
 }
 
+=item createAliasDomain()
+
+Causes the currently set domain to be set as an alias to the target supplied in a hash passed as an argument:
+
+ $d->setDomain('alias.com');
+ $d->createAliasDomain( target => 'target.com');
+
+will cause all mail sent to something@alias.com to be forwarded to something@target.com. Notably, it does not 
+check that the domain is not already aliased somewhere, so you can end up aliasing one domain to two targets 
+which is probably not what you want.
+
+You can pass three other keys in the hash, though only C<target> is required:
+ created	'created' date. Is passed verbatim to the db so should be in a format it understands.
+ modified	Ditto but for the modified date
+ active		The status of the domain. Again, passed verbatim to the db, but probably should be a '1' or a '0'.
+
+=cut
+
+
 sub createAliasDomain {
 	my $self = shift;
 	my %opts = @_;
@@ -907,6 +1016,15 @@ sub removeDomain(){
 
 }
 
+=item removeAlias()
+
+Removes the alias property of a domain. An alias domain is just a normal domain which happens to be listed 
+in a table matching it with a target; this function merely removes that row from that table and allows you
+to go on to removeDomain(). Alternatively, you can use it to clear up having performed a removeDomain().
+
+
+=cut
+
 sub removeAlias{
 	my $self = shift;
 	my $domain = $self->{_domain};
@@ -928,27 +1046,27 @@ sub removeAlias{
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
 # dbConnection
-# Deduces db details and establishes a connection to the db. 
-# Returns a DBI/DBD object
-sub _dbConnection(){
-        ## Need to deduce credentials more intelligently
+# Deduces db details, returns an array of arguments to a 
+# $dbi->connect()
+sub _dbiStuff{
+	my $confFile = shift;
 	my $maincf = shift;
-        my $somefile;
-        open(my $conf, "<", $maincf) or die ("Error opening postfix config file at $maincf : $!");
-        while(<$conf>){
-                if(/mysql:/){
-                        $somefile = (split(/mysql:/, $_))[1];
-                        last;
-                }
-        }
+	my $somefile;
+	open(my $conf, "<", $confFile) or die ("Error opening postfix config file at $confFile : $!");
+	while(<$conf>){
+	        if(/mysql:/){
+			$somefile = (split(/mysql:/, $_))[1];
+			last;
+       	        }
+	}
         close($conf);
         $somefile =~ s/\/\//\//g;
         chomp $somefile;
         open(my $fh, "<", $somefile) or die ("Error opening postfixy db conf file ($somefile) : $!");
-        my %db;
+	my %db;
         while(<$fh>){
                 if (/=/){
-                        my $line = $_;
+			my $line = $_;
                         $line =~ s/(\s*#.+)//;
                         $line =~ s/\s*$//;
                         my ($k,$v) = split(/\s*=\s*/, $_);
@@ -961,8 +1079,8 @@ sub _dbConnection(){
                         }
                 }
         }
-        my $dbh = DBI->connect("DBI:mysql:$db{'name'}:host=$db{'host'}", $db{'user'}, $db{'pass'}, {RaiseError => '1'}) || die "Could not connect to database: $DBI::errstr";
-        return $dbh
+	my @dbiString = ("DBI:mysql:$db{'name'}:host=$db{'host'}", "$db{'user'}", "$db{'pass'}");
+	return @dbiString;
 }
 
 =back 
