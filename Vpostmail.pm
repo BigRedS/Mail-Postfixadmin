@@ -18,7 +18,18 @@ Vpostmail - Interferes with a Postfix/Dovecot/MySQL system
 
 =head1 SYNOPSIS
 
-	use Vpostmail;
+
+Vpostmail is an attempt to provide a bunch of neat functions that wrap around the tedious SQL involved
+in interfering with a Postfix/Dovecot/MySQL virtual mailbox mail system. It can probably be used on others
+so long as the DB schema is similar enough.
+
+It's _very_much_ still in development. All sorts of things will change :) This is currently a todo list as much
+as it is documentation of the module.
+
+This is also completely not an object-orientated interface to the Postfix/Dovecot mailer, since it doesn't actually
+represent anything sensibly as objects. At best, it's an object-considering means of configuring it.
+
+        use Vpostmail;
 
 	my $v = Vpostmail->new();
 	$v->setDomain("example.org");
@@ -39,39 +50,10 @@ Vpostmail - Interferes with a Postfix/Dovecot/MySQL system
 
 	$v->changePassword('complexpass');
 
-=head1 REQUIRES
-
-=over 
-
-=item * Perl 5.10
-
-=item * Crypt::PasswdMD5 
-
-=item * Carp
-
-=item * DBI
-
-=back
-
-Crypt::PasswdMD5 is C<libcyrpt-passwdmd5-perl> in Debian, 
-DBI is C<libdbi-perl>
-
-
-=head1 DESCRIPTION
-
-Vpostmail is an attempt to provide a bunch of neat functions that wrap around the tedious SQL involved
-in interfering with a Postfix/Dovecot/MySQL virtual mailbox mail system. It can probably be used on others
-so long as the DB schema is similar enough.
-
-It's _very_much_ still in development. All sorts of things will change :) This is currently a todo list as much
-as it is documentation of the module.
-
-This is also completely not an object-orientated interface to the Postfix/Dovecot mailer, since it doesn't actually
-represent anything sensibly as objects. At best, it's an object-considering means of configuring it.
 
 =head1 CONSTRUCTOR AND STARTUP
 
-=item new()
+=head3 new()
 
 Creates and returns a new Vpostmail object. You want to provide some way of determining how to connect
 to the database. There are two ways:
@@ -82,8 +64,8 @@ to the database. There are two ways:
 	 dbpass => 'password'
  )
 
-Which essentially is the three arguments to a DBI->connect(). Alternatively, you can pass the location
-of postfix's main.cf file:
+Which essentially is the three arguments to a DBI->connect. Alternatively, you can pass the location
+of postfix's C<main.cf> file:
 
  my $d = Vpostmail->new(
  	 maincf	=> '/etc/postfix/main.cf'
@@ -93,8 +75,9 @@ In which case the file passed as an argument is parsed for a line specifying a f
 configuration, which is then itself parsed to get the connection info. This is still somewhat crap and
 should be made more robust and flexible.
 
-If main.cf is passed, the dbi, dbuser and dbpass values are ignored (and overwritten) by data found 
-in the files. main.cf is deemed to have been 'passed' if its value contains a forward-slash ('/').
+If C<main.cf> is passed the C<dbi>, C<dbuser> and C<dbpass> values are ignored and overwritten by 
+data found in the files. C<main.cf> is deemed to have been 'passed' if its value contains a 
+forward-slash ('C</>').
 
 =cut
 
@@ -172,8 +155,10 @@ one of these. The getters and setters are
  setUser()
  setDomain()
 
-Functions do not, in general, expect to be passed either a user or a domain as an argument, with C<createDomain()> and 
-C<createUser()> acting as notable examples - they will accept either set in the hash of settings they're passed.
+Functions do not, in general, expect to be passed either a user or a domain as an argument, with 
+C<createDomain()> and C<createUser()> acting as notable examples - if C<createDomain> is called 
+without a domain having been 'set', it will accept a domain set by passing it in its hash. 
+C<createUser> is the same with the user.
 
 There is also a pair of 'unsetters':
 
@@ -182,24 +167,22 @@ There is also a pair of 'unsetters':
 
 The setters will return the value to which they have set the variable; these two are equivalent:
 
-  $d->setDomain('example.org');
-  print $d->getDomain();
+  $v->setDomain('example.org');
+  print $v->getDomain();
 
-  print $d->setDomain('example.org');
+  print $v->setDomain('example.org');
 
 in that both will print 'example.org'. 
 
-=over 4
-
-=item setUser()
+=head3 setUser()
 
 setUser may either be passed the full username (C<bob@example.org>) or, if a domain is already set with C<setDomain()>, just
 the left-hand-side (C<bob>). These two are equivalent:
 
- $d->setDomain('example.org');
- $d->setUser('bob');
+ $v->setDomain('example.org');
+ $v->setUser('bob');
 
- $d->setUser('bob@example.org');
+ $v->setUser('bob@example.org');
 
 Note that this behaviour depends upon the argument to C<setUser()>, not only the set-ness of a domain. If no domain is 
 set, then the argument to C<setUser> is always assumed to be the whole username.
@@ -207,7 +190,8 @@ set, then the argument to C<setUser> is always assumed to be the whole username.
 If a domain is set, then the argument is assumed to be a whole email address if it contains a '@', else it's assumed
 to be a left-hand-side only.
 
-=item get
+=head3 get()
+
 =cut
 
 sub getDomain(){
@@ -237,20 +221,20 @@ sub setUser(){
 	return $self->{_user};
 }
 
-=item unsetDomain() and unsetUser()
+=head3 unsetDomain() and unsetUser()
 
 Sets the domain or the user to C<undef>. Returns the previous value of the variable, rather than the new value (which you 
 would get out of the setters):
 
-  $d->setDomain('example.org')
-  print $d->setDomain(undef);
+  $v->setDomain('example.org')
+  print $v->setDomain(undef);
 
 will print undef, whereas
 
-  $d->setDomain('example.org)
-  print $d->unsetDomain();
+  $v->setDomain('example.org')
+  print $v->unsetDomain();
 
-will print 'C<example.org>'
+will print ' C<example.org> '
 
 =cut
 
@@ -271,7 +255,7 @@ sub unsetUser(){
 
 
 
-=item getdbCredentials()
+=head3 getdbCredentials()
 
 Returns a hash of the db Credentials as expected by the constructor. Keys are C<dbi> C<dbuser> and C<dbpass>. 
 These are the three arguments for the DBI constructor; C<dbi> is the fill connection string (including C<DBI:mysql> at the beginning.
@@ -285,13 +269,10 @@ sub getdbCredentials{
 	}
 	return %return;
 }
-=back
 
 =head2 User and domain information
 
-=over
-
-=item numDomains()
+=head3 numDomains()
 
 Returns the number of domains configured on the server. If you'd like only those that match some pattern, you should use C<listDomains()> and measure 
 the size of the returned list.
@@ -310,7 +291,7 @@ sub numDomains(){
 }
 
 
-=item numUsers()
+=head3 numUsers()
 
 Returns the number of configured users. If a domain is set (with C<setDomain()>) it will only return users configured on that domain. If not, 
 it will return all the users. If you'd like only those that match some pattern, you should use C<listUsers()> and measure the size of the returned
@@ -332,7 +313,7 @@ sub numUsers(){
 	return $numUsers;
 }
 
-=item listDomains() 
+=head3 listDomains() 
 
 Returns a list of domains on the system. You may pass a regex as an argument, and only those domains matching that regex are supplied. There's 
 no way of passing options, and the regex is matched case-sensitively - you need to build insensitivity in to the pattern if you want it.
@@ -358,7 +339,7 @@ sub listDomains(){
 }
 
 
-=item listDomains() 
+=head3 listDomains() 
 
 Returns a list of users on the system (or, if it's previously been defined, the domain). 
 
@@ -388,7 +369,7 @@ sub listUsers(){
 	return @users;
 }
 
-=item domainExists() and userExists()
+=head3 domainExists() and userExists()
 
 Check for the existence of a user or a domain. Returns the amount it found (in anticipation of also serving as a sort-of search)
 if the domain or user does exist, empty otherwise.
@@ -435,7 +416,7 @@ sub userExists(){
 	}
 }
 
-=item domainIsAlias()
+=head3 domainIsAlias()
 
 Checks whether the currently set domain is an alias domain. Returns the amount of 'targets' the 
 domain has been configured as an alias to. This should only ever be 0 or 1 in normal use.
@@ -460,7 +441,7 @@ sub domainIsAlias(){
 	}
 }
 
-=item domainIsTarget()
+=head3 domainIsTarget()
 
 Checks whether the currently set domain is the target of an alias domain. Returns the amount of 
 aliases that have the set domain as their targets
@@ -485,7 +466,7 @@ sub domainIsTarget(){
 	}
 }
 
-=item getUserInfo()
+=head3 getUserInfo()
 
 Returns a hash containing info about the user. The keys are the same as the internally-used names for the fields
 in the SQL (as you can find from C<getFields()> and C<getTables()> ).
@@ -540,7 +521,7 @@ sub getUserInfo(){
 
 
 
-=item getDomainInfo()
+=head3 getDomainInfo()
 
 Returns a hash containing info about the domain. The keys are the same as the internally-used names for the fields
 in the SQL (as you can find from getFields and getTables), with a couple of additions:
@@ -603,7 +584,7 @@ sub getDomainInfo(){
 	return %return;
 }
 
-=item getTargetAliases()
+=head3 getTargetAliases()
 
 Returns a list of aliases for the target currently set as the domain. Returns false if the domain is not
 listed as a target, an empty list if the domain is listed as a target, but the alias is NULL.
@@ -628,13 +609,10 @@ sub getTargetAliases{
 	}
 }
 
-=back
 
 =head2 Passwords
 
-=over 
-
-=item cryptPassword()
+=head3 cryptPassword()
 
 This probably has no real use, except for where other functions use it. It should let you specify a 
 salt for the password, but doesn't yet. It expects a cleartext password as an argument, and returns the crypted sort. 
@@ -648,7 +626,7 @@ sub cryptPassword(){
 	return $cryptedPassword;
 }
 
-=item changePassword() 
+=head3 changePassword() 
 
 Changes the password of a user. The user should be set with C<setUser> (or equivalent) and the cleartext password 
 passed as an argument. It returns the encrypted password as written to the DB. 
@@ -673,7 +651,7 @@ sub changePassword(){
 	return $cryptedPassword;
 }
 
-=item changeCryptedPassword()
+=head3 changeCryptedPassword()
 
 changeCryptedPassword operates in exactly the same way as changePassword, but it expects to be passed an already-encrypted 
 password, rather than a clear text one. It does no processing at all of its arguments, just writes it
@@ -699,13 +677,9 @@ sub changeCryptedPassword(){
 	return $cryptedPassword;
 }
 
-=back 
-
 =head2 Creating things
 
-=over
-
-=item createDomain()
+=head3 createDomain()
 
 Expects to be passed a hash of options, with the keys being the same as those output by C<getDomainInfo()>. None
 are necessary (provided C<setDomain()> has been called so it knows which domain it's creating). If the 'domain' 
@@ -775,7 +749,7 @@ sub createDomain(){
 	}
 }
 
-=item createUser()
+=head3 createUser()
 
 Expects to be passed a hash of options, with the keys being the same as those output by C<etUserInfo()>. None
 are necessary (provided a user has been set so it knows which user to create). If the 'username' key is in the
@@ -874,12 +848,12 @@ sub createUser(){
 	}
 }
 
-=item createAliasDomain()
+=head3 createAliasDomain()
 
 Causes the currently set domain to be set as an alias to the target supplied in a hash passed as an argument:
 
- $d->setDomain('alias.com');
- $d->createAliasDomain( target => 'target.com');
+ $v->setDomain('alias.com');
+ $v->createAliasDomain( target => 'target.com');
 
 will cause all mail sent to something@alias.com to be forwarded to something@target.com. Notably, it does not 
 check that the domain is not already aliased somewhere, so you can end up aliasing one domain to two targets 
@@ -933,13 +907,30 @@ sub createAliasDomain {
 	}
 }
 
-=back
+sub CreateAliasUser {
+	my $self = shift;
+	my %opts = @_;
+	if ($self->{_user} eq ''){
+		Carp::croak "No user set";
+	}
+	unless(exists($opts{'target'})){
+		Carp::croak "No target passed";
+	}
+	if($self->userExists){
+		Carp::Croak "User $self->{_user} already exists";
+	}
+	unless(exists($opts{domain})){
+		if($self->{_user} =~ /\@(.+)$/){
+			$opts{domain} = $1;
+		}
+	}
+
+	my $fields = "$self->{fields}->{alias}->{address}, $self->{fields}->{goto}, $self->{fields}->{domain}"
+	
 
 =head2 Deleting things
 
-=over
-
-=item removeUser();
+=head3 removeUser();
 
 Removes the user set in C<setUser()>.
 
@@ -974,7 +965,7 @@ sub removeUser(){
 }	
 	
 
-=item removeDomain()
+=head3 removeDomain()
 
 Removes the domain set in C<SetDomain()>, and all of its attached users (using C<removeUser()>).  
 
@@ -1016,7 +1007,7 @@ sub removeDomain(){
 
 }
 
-=item removeAlias()
+=head3 removeAlias()
 
 Removes the alias property of a domain. An alias domain is just a normal domain which happens to be listed 
 in a table matching it with a target; this function merely removes that row from that table and allows you
@@ -1083,7 +1074,19 @@ sub _dbiStuff{
 	return @dbiString;
 }
 
-=back 
+=head2 UTILITIES
+
+=head3 now()
+
+Returns the current time in a format suitable for passing straight to the database. Currently is just in MySQL 
+datetime format (YYYY-MM-DD HH-MM-SS).
+
+=cut
+
+sub now{
+	return _mysqlNow();
+}
+
 
 =head2 The DB schema
 
@@ -1134,6 +1137,19 @@ Currently, the assumptions made of the database schema are very small. We asssum
  +-------------+--------------+------+-----+---------------------+-------+
  11 rows in set (0.00 sec)
 
+ mysql> describe alias_domain;
+ +---------------+--------------+------+-----+---------------------+-------+
+ | Field         | Type         | Null | Key | Default             | Extra |
+ +---------------+--------------+------+-----+---------------------+-------+
+ | alias_domain  | varchar(255) | NO   | PRI | NULL                |       |
+ | target_domain | varchar(255) | NO   | MUL | NULL                |       |
+ | created       | datetime     | NO   |     | 0000-00-00 00:00:00 |       |
+ | modified      | datetime     | NO   |     | 0000-00-00 00:00:00 |       |
+ | active        | tinyint(1)   | NO   | MUL | 1                   |       |
+ +---------------+--------------+------+-----+---------------------+-------+
+ 5 rows in set (0.00 sec)
+
+
 And, er, that's it.
 
 C<getFields> returns C<%_fields>, C<getTables %_tables>. C<setFields> and C<setTables> resets them to the hash passed as an 
@@ -1174,7 +1190,12 @@ sub _fields(){
 	};
 	$fields{'alias'} = {
 				'address'	=> 'address',
-				'domain'	=> 'domain'
+				'goto'		=> 'goto',	# Really should have been called 'target'
+				'domain'	=> 'domain',
+				'created'	=> 'created',
+				'modified'	=> 'modified',
+				'active'	=> 'active'
+
 	};
 	$fields{'domain'} = { 
 	                        'domain'        => 'domain',
@@ -1227,27 +1248,30 @@ sub _mysqlNow() {
 
 =head1 CLASS VARIABLES
 
-=over
+=cut
 
-=item errstr
+#=head3 errstr
+#
+#C<$v->errstr> contains the error message of the last action. If it's empty (i.e. C<$v->errstr eq ''>) then it should be safe to assume
+#nothing went wrong. Currently, it's only used where the creation or deletion of something appeared to succeed, but the something 
+#didn't begin to exist or cease to exist.
+#
+#=head3 infostr
+#
+#C<$v->infostr> is more useful.
+#Generally, it contains the SQL queries used to perform whatever job the function performed, excluding any ancilliary checks. If it
+#took more than one SQL query, they're concatenated with semi-colons between them.
+#
+#It also populated when trying to create something that exists, or delete something that doesn't.
 
-C<$v->errstr> contains the error message of the last action. If it's empty (i.e. C<$v->errstr eq ''>) then it should be safe to assume
-nothing went wrong. Currently, it's only used where the creation or deletion of something appeared to succeed, but the something 
-didn't begin to exist or cease to exist.
+=head3 dbi
 
-=item infostr
+C<dbi> is the dbi object used by the rest of the module, having guessed/set the appropriate credentials. 
+You can use it as you would the return directly from a $dbi->connect:
 
-C<$v->infostr> is more useful.
-Generally, it contains the SQL queries used to perform whatever job the function performed, excluding any ancilliary checks. If it
-took more than one SQL query, they're concatenated with semi-colons between them.
+  my $sth = $v->{dbi}->prepare($query);
+  $sth->execute;
 
-It also populated when trying to create something that exists, or delete something that doesn't.
-
-=item dbi
-
-C<$v->dbi> is the dbi object used by the rest of the module, having guessed/set the appropriate credentials.
-
-=back
 
 =head1 DIAGNOSTICS
 
@@ -1264,6 +1288,23 @@ Functions generally return:
 =back
 
 See C<errstr> and C<infostr> for better diagnostics.
+
+=head1 REQUIRES
+
+=over 
+
+=item * Perl 5.10
+
+=item * Crypt::PasswdMD5 
+
+=item * Carp
+
+=item * DBI
+
+=back
+
+Crypt::PasswdMD5 is C<libcyrpt-passwdmd5-perl> in Debian, 
+DBI is C<libdbi-perl>
 
 =cut
 
