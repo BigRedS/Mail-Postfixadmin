@@ -190,7 +190,6 @@ set, then the argument to C<setUser> is always assumed to be the whole username.
 If a domain is set, then the argument is assumed to be a whole email address if it contains a '@', else it's assumed
 to be a left-hand-side only.
 
-=head3 get()
 
 =cut
 
@@ -466,6 +465,96 @@ sub domainIsTarget(){
 	}
 }
 
+=head3 userIsAlias()
+
+Checks whether the currently set user is an alias to another address. Returns the number of rows
+in which the user is configured as an alias, *not* the amount of target addresses (see C<getUserTargets> 
+for that)
+
+=cut
+
+sub userIsAlias{
+	my $self = shift;
+	my $user = $self->{_user};
+	if ($user eq ''){ Carp::croak "No user set";}
+	my $query = "select count(*) from $self->{tables}->{alias} where $self->{fields}->{alias}->{address} = '$user'";
+	my $sth = $self->{dbi}->prepare($query);
+	$sth->execute;
+	my $count = ($sth->fetchrow_array())[0];
+	$self->{infostr} = $query;
+	if ($count > 0){
+		return $count;
+	}else{
+		return;
+	}
+}
+
+=head3 userIsTarget()
+
+Checks for the currently set user as a target address. Returns the number of rows in which the user
+is configured as an alias which should be the number of unique addresses, but may not be. Use
+C<getUserAliases()> for a more accurate count.
+
+=cut
+
+sub userIsTarget{
+	my $self = shift;
+	my $user = $self->{_user};
+	if ($user eq ''){ Carp::croak "No user set";}
+	my $query = "select count(*) $self->{tables}->{alias} where $self->{fields}->{alias}->{target} like '%$user%";
+	my $sth = $self->{dbi}->prepare($query);
+	$sth->execute;
+	my $count = ($sth->fetchrow_array())[0];
+	$self->{infostr} = $query;
+	if ($count > 0){
+		return $count;
+	}else{
+		return;
+	}
+}
+
+=head3 getUserAliases()
+
+Returns a list of aliases for which the current user is a target.
+
+=cut
+
+sub getUserAliases{
+	my $self = shift;
+	my $user = $self->{_user};
+	if ($user eq ''){ Carp::croak "No user set";}
+	my $query = "select $self->{fields}->{alias}->{address} from $self->{tables}->{alias} where $self->{fields}->{alias}->{goto} like '%user%')";
+	my $sth = $self->{dbi}->prepare{$query};
+	$sth->execute;
+	my @addresses;
+	while(my @row = $sth->fetchrow_array()){
+		push(@addresses, $row[0];
+	}
+	return @addresses;
+
+}
+
+=head3 getUserTargets()
+
+Returns a list of addresses for which the current user is an alias.
+
+=cut
+
+sub getUserTargets{
+	my $self = shift;
+	my $user = $self->{_user};
+	if ($user eq ''){ Carp::croak "No user set";}
+	my $query = "select $self->{fields}->{alias}->{goto} from $self->{tables}->{alias} where $self->{fields}->{alias}->{address} like '%user%')";
+	my $sth = $self->{dbi}->prepare{$query};
+	$sth->execute;
+	my $goto;
+	while(my @row = $sth->fetchrow_array()){
+		$goto.=", $row[0]";
+	}
+	my @gotos = split(/\s*,\s*/, $goto);
+	return @gotos;
+
+}
 =head3 getUserInfo()
 
 Returns a hash containing info about the user. The keys are the same as the internally-used names for the fields
@@ -907,6 +996,51 @@ sub createAliasDomain {
 	}
 }
 
+=head3 createAliasUser()
+
+Causes the currently set user to be configured as an alias address
+
+ $v->setUser('alias@example.com');
+ $v->createAliasDomain( target => 'target@example.org');
+
+will cause all mail sent to alias@example.com to be forwarded to target@example.org. 
+
+You may forward to more than one address by passing an array of targets:
+
+ $v->createAliasDomain( target => [ 'target@example.org'. 'target@example.net' ] );
+
+or just a comma-separated string:
+
+ $v->createAliasDomain( target => 'target@example.org, target@example.net');
+
+For some reason, the domain is stored in the db. If you pass a C<domain> key in the hash, this is
+used. If not, a domain set with setDomain(); is checked for and if that's not set a regex is applied 
+to the username ( C</\@(.+)$/> ). If that doesn't match, an exception is raised.
+
+You can pass three other keys in the hash, though only C<target> is required:
+
+ created   'created' date. Is passed verbatim to the db so should be in a format it understands.
+ modified  Ditto but for the modified date
+ active    The status of the domain. Again, passed verbatim to the db, but probably should be a '1' or a '0'.
+
+In full:
+
+ $d->setUser('alias@example.org');
+ $d->createAliasUser(
+		target	=> [qw/target@example.org, target@example.net/],
+		domain	=> 'example.org',
+		modified => $v->now;
+		created	=> $v->now;
+		active => 1
+ );
+
+On success a hash of the arguments is returned, with an addtional key: scalarTarget. This is the 
+value of C<target> as it was actually inserted into the DB. It will either be exactly the same as 
+C<target> if you've passed a scalar, or the array passed joined on a comma.
+
+=cut
+
+
 sub CreateAliasUser {
 	my $self = shift;
 	my %opts = @_;
@@ -920,13 +1054,48 @@ sub CreateAliasUser {
 		Carp::Croak "User $self->{_user} already exists";
 	}
 	unless(exists($opts{domain})){
-		if($self->{_user} =~ /\@(.+)$/){
+		if($self->{_domain}){
+			$opts{domain} = $self->{_domain};
+		}elsif($self->{_user} =~ /\@(.+)$/){
 			$opts{domain} = $1;
+		}else{	
+			Carp::croak "Error determining domain from user '$self->{_user}'";
 		}
+	}
+	if(ref($opts{target}) eq 'ARRAY'){
+		$opts{scalarTarget} = join(/, / @{$opts{target}});
+	}elsif(ref($opts{target}) eq 'SCALAR'){
+		$opts{scalarTarget} = $opts{target};
+	}else{
+		Carp::croak "Target passed as ". ref($opts{target}). ", expected array or scalar";
 	}
 
 	my $fields = "$self->{fields}->{alias}->{address}, $self->{fields}->{goto}, $self->{fields}->{domain}"
+	my $values = "$opts{alias}, $opts{scalarTarget}, $opts{domain}";
 	
+	if(exists($opts{'created'})){
+		$fields.=", $self->{fields}->{alias_domain}->{created}";
+		$values=", '$opts{'created'}'";
+	}
+	if(exists($opts{'modified'})){
+		$fields.=", $self->{fields}->{alias_domain}->{modified}";
+		$values.=", $opts{'modified'}";
+	}
+	if(exists($opts{'active'})){
+		$fields.=", $self->{fields}->{alias_domain}->{active}";
+		$values.=", '$opts{'active'}'";
+	}
+	my $query = "insert into $self->{tables}->{alias_domain} ( $fields ) values ( $values )";
+	my $sth = $self->{dbi}->prepare($query);
+	$sth->execute;
+	
+	if($self->isAliasUser){
+		return %opts;
+	}else{
+		return;
+	}
+
+}
 
 =head2 Deleting things
 
@@ -1074,7 +1243,7 @@ sub _dbiStuff{
 	return @dbiString;
 }
 
-=head2 UTILITIES
+=head2 Utilities
 
 =head3 now()
 
@@ -1088,81 +1257,6 @@ sub now{
 }
 
 
-=head2 The DB schema
-
-Internally, the db schema is stored in two hashes. 
-
-C<%_tables> is a hash storing the names of the tables. The keys are the values used internally to refer to the 
-tables, and the values are the names of the tables in the db.
-
-C<%_fields> is a hash of hashes. The 'top' hash has as keys the internal names for the tables (as found in 
-C<getTables()>), with the values being hashes representing the tables. Here, the key is the name as used internally, 
-and the value the names of those fields in the SQL.
-
-Currently, the assumptions made of the database schema are very small. We asssume two tables, 'mailbox' and 
-'domain':
-
- mysql> describe mailbox;
- +------------+--------------+------+-----+---------------------+-------+
- | Field      | Type         | Null | Key | Default             | Extra |
- +------------+--------------+------+-----+---------------------+-------+
- | username   | varchar(255) | NO   | PRI | NULL                |       |
- | password   | varchar(255) | NO   |     | NULL                |       |
- | name       | varchar(255) | NO   |     | NULL                |       |
- | maildir    | varchar(255) | NO   |     | NULL                |       |
- | quota      | bigint(20)   | NO   |     | 0                   |       |
- | local_part | varchar(255) | NO   |     | NULL                |       |
- | domain     | varchar(255) | NO   | MUL | NULL                |       |
- | created    | datetime     | NO   |     | 0000-00-00 00:00:00 |       |
- | modified   | datetime     | NO   |     | 0000-00-00 00:00:00 |       |
- | active     | tinyint(1)   | NO   |     | 1                   |       |
- +------------+--------------+------+-----+---------------------+-------+
- 10 rows in set (0.00 sec)
-   
- mysql> describe domain;
- +-------------+--------------+------+-----+---------------------+-------+
- | Field       | Type         | Null | Key | Default             | Extra |
- +-------------+--------------+------+-----+---------------------+-------+
- | domain      | varchar(255) | NO   | PRI | NULL                |       |
- | description | varchar(255) | NO   |     | NULL                |       |
- | aliases     | int(10)      | NO   |     | 0                   |       |
- | mailboxes   | int(10)      | NO   |     | 0                   |       |
- | maxquota    | bigint(20)   | NO   |     | 0                   |       |
- | quota       | bigint(20)   | NO   |     | 0                   |       |
- | transport   | varchar(255) | NO   |     | NULL                |       |
- | backupmx    | tinyint(1)   | NO   |     | 0                   |       |
- | created     | datetime     | NO   |     | 0000-00-00 00:00:00 |       |
- | modified    | datetime     | NO   |     | 0000-00-00 00:00:00 |       |
- | active      | tinyint(1)   | NO   |     | 1                   |       |
- +-------------+--------------+------+-----+---------------------+-------+
- 11 rows in set (0.00 sec)
-
- mysql> describe alias_domain;
- +---------------+--------------+------+-----+---------------------+-------+
- | Field         | Type         | Null | Key | Default             | Extra |
- +---------------+--------------+------+-----+---------------------+-------+
- | alias_domain  | varchar(255) | NO   | PRI | NULL                |       |
- | target_domain | varchar(255) | NO   | MUL | NULL                |       |
- | created       | datetime     | NO   |     | 0000-00-00 00:00:00 |       |
- | modified      | datetime     | NO   |     | 0000-00-00 00:00:00 |       |
- | active        | tinyint(1)   | NO   | MUL | 1                   |       |
- +---------------+--------------+------+-----+---------------------+-------+
- 5 rows in set (0.00 sec)
-
-
-And, er, that's it.
-
-C<getFields> returns C<%_fields>, C<getTables %_tables>. C<setFields> and C<setTables> resets them to the hash passed as an 
-argument. It does not merge the two hashes.
-
-This is the only way you should be interfering with those hashes.
-
-Since the module does no guesswork as to the db schema (yet), you might need to use these to get it to load 
-yours. Even when it does do that, it might guess wrongly.
-
-
-
-=cut
 sub _tables(){
 	my %tables = ( 
 	        'admin'         => 'admin',
@@ -1272,6 +1366,13 @@ You can use it as you would the return directly from a $dbi->connect:
   my $sth = $v->{dbi}->prepare($query);
   $sth->execute;
 
+=head3 params
+
+C<params> is the hash passed to the constructor, including any interpreting it does. If you've chosen to authenticate by passing
+the path to a main.cf file, for example, you can use the database credentials keys (C<dbuser, dbpass and dbi>) to initiate your 
+own connection to the db (though you may as well use dbi, above). 
+
+Other variables are likely to be put here as I decide I'd like to use them :)
 
 =head1 DIAGNOSTICS
 
@@ -1288,6 +1389,92 @@ Functions generally return:
 =back
 
 See C<errstr> and C<infostr> for better diagnostics.
+
+=head2 The DB schema
+
+Internally, the db schema is stored in two hashes. 
+
+C<%_tables> is a hash storing the names of the tables. The keys are the values used internally to refer to the 
+tables, and the values are the names of the tables in the db.
+
+C<%_fields> is a hash of hashes. The 'top' hash has as keys the internal names for the tables (as found in 
+C<getTables()>), with the values being hashes representing the tables. Here, the key is the name as used internally, 
+and the value the names of those fields in the SQL.
+
+Currently, the assumptions made of the database schema are very small. We asssume four tables, 'mailbox', 'domain', 
+'alias' and 'alias domain':
+
+ mysql> describe mailbox;
+ +------------+--------------+------+-----+---------------------+-------+
+ | Field      | Type         | Null | Key | Default             | Extra |
+ +------------+--------------+------+-----+---------------------+-------+
+ | username   | varchar(255) | NO   | PRI | NULL                |       |
+ | password   | varchar(255) | NO   |     | NULL                |       |
+ | name       | varchar(255) | NO   |     | NULL                |       |
+ | maildir    | varchar(255) | NO   |     | NULL                |       |
+ | quota      | bigint(20)   | NO   |     | 0                   |       |
+ | local_part | varchar(255) | NO   |     | NULL                |       |
+ | domain     | varchar(255) | NO   | MUL | NULL                |       |
+ | created    | datetime     | NO   |     | 0000-00-00 00:00:00 |       |
+ | modified   | datetime     | NO   |     | 0000-00-00 00:00:00 |       |
+ | active     | tinyint(1)   | NO   |     | 1                   |       |
+ +------------+--------------+------+-----+---------------------+-------+
+ 10 rows in set (0.00 sec)
+   
+ mysql> describe domain;
+ +-------------+--------------+------+-----+---------------------+-------+
+ | Field       | Type         | Null | Key | Default             | Extra |
+ +-------------+--------------+------+-----+---------------------+-------+
+ | domain      | varchar(255) | NO   | PRI | NULL                |       |
+ | description | varchar(255) | NO   |     | NULL                |       |
+ | aliases     | int(10)      | NO   |     | 0                   |       |
+ | mailboxes   | int(10)      | NO   |     | 0                   |       |
+ | maxquota    | bigint(20)   | NO   |     | 0                   |       |
+ | quota       | bigint(20)   | NO   |     | 0                   |       |
+ | transport   | varchar(255) | NO   |     | NULL                |       |
+ | backupmx    | tinyint(1)   | NO   |     | 0                   |       |
+ | created     | datetime     | NO   |     | 0000-00-00 00:00:00 |       |
+ | modified    | datetime     | NO   |     | 0000-00-00 00:00:00 |       |
+ | active      | tinyint(1)   | NO   |     | 1                   |       |
+ +-------------+--------------+------+-----+---------------------+-------+
+ 11 rows in set (0.00 sec)
+
+ mysql> describe alias_domain;
+ +---------------+--------------+------+-----+---------------------+-------+
+ | Field         | Type         | Null | Key | Default             | Extra |
+ +---------------+--------------+------+-----+---------------------+-------+
+ | alias_domain  | varchar(255) | NO   | PRI | NULL                |       |
+ | target_domain | varchar(255) | NO   | MUL | NULL                |       |
+ | created       | datetime     | NO   |     | 0000-00-00 00:00:00 |       |
+ | modified      | datetime     | NO   |     | 0000-00-00 00:00:00 |       |
+ | active        | tinyint(1)   | NO   | MUL | 1                   |       |
+ +---------------+--------------+------+-----+---------------------+-------+
+ 5 rows in set (0.00 sec)
+
+ mysql> describe alias;
+ +----------+--------------+------+-----+---------------------+-------+
+ | Field    | Type         | Null | Key | Default             | Extra |
+ +----------+--------------+------+-----+---------------------+-------+
+ | address  | varchar(255) | NO   | PRI | NULL                |       |
+ | goto     | text         | NO   |     | NULL                |       |
+ | domain   | varchar(255) | NO   | MUL | NULL                |       |
+ | created  | datetime     | NO   |     | 0000-00-00 00:00:00 |       |
+ | modified | datetime     | NO   |     | 0000-00-00 00:00:00 |       |
+ | active   | tinyint(1)   | NO   |     | 1                   |       |
+ +----------+--------------+------+-----+---------------------+-------+
+ 6 rows in set (0.00 sec)
+
+And, er, that's it.
+
+C<getFields> returns C<%_fields>, C<getTables %_tables>. C<setFields> and C<setTables> resets them to the hash passed as an 
+argument. It does not merge the two hashes.
+
+This is the only way you should be interfering with those hashes.
+
+Since the module does no guesswork as to the db schema (yet), you might need to use these to get it to load 
+yours. Even when it does do that, it might guess wrongly.
+
+
 
 =head1 REQUIRES
 
