@@ -523,12 +523,12 @@ sub getUserAliases{
 	my $self = shift;
 	my $user = $self->{_user};
 	if ($user eq ''){ Carp::croak "No user set";}
-	my $query = "select $self->{fields}->{alias}->{address} from $self->{tables}->{alias} where $self->{fields}->{alias}->{goto} like '%user%')";
-	my $sth = $self->{dbi}->prepare{$query};
+	my $query = "select $self->{fields}->{alias}->{address} from $self->{tables}->{alias} where $self->{fields}->{alias}->{goto} like '%user%'";
+	my $sth = $self->{dbi}->prepare($query);
 	$sth->execute;
 	my @addresses;
 	while(my @row = $sth->fetchrow_array()){
-		push(@addresses, $row[0];
+		push(@addresses, $row[0]);
 	}
 	return @addresses;
 
@@ -545,7 +545,7 @@ sub getUserTargets{
 	my $user = $self->{_user};
 	if ($user eq ''){ Carp::croak "No user set";}
 	my $query = "select $self->{fields}->{alias}->{goto} from $self->{tables}->{alias} where $self->{fields}->{alias}->{address} like '%user%')";
-	my $sth = $self->{dbi}->prepare{$query};
+	my $sth = $self->{dbi}->prepare($query);
 	$sth->execute;
 	my $goto;
 	while(my @row = $sth->fetchrow_array()){
@@ -1051,7 +1051,7 @@ sub CreateAliasUser {
 		Carp::croak "No target passed";
 	}
 	if($self->userExists){
-		Carp::Croak "User $self->{_user} already exists";
+		Carp::croak "User $self->{_user} already exists";
 	}
 	unless(exists($opts{domain})){
 		if($self->{_domain}){
@@ -1063,14 +1063,14 @@ sub CreateAliasUser {
 		}
 	}
 	if(ref($opts{target}) eq 'ARRAY'){
-		$opts{scalarTarget} = join(/, / @{$opts{target}});
+		$opts{scalarTarget} = join(/, /, @{$opts{target}});
 	}elsif(ref($opts{target}) eq 'SCALAR'){
 		$opts{scalarTarget} = $opts{target};
 	}else{
 		Carp::croak "Target passed as ". ref($opts{target}). ", expected array or scalar";
 	}
 
-	my $fields = "$self->{fields}->{alias}->{address}, $self->{fields}->{goto}, $self->{fields}->{domain}"
+	my $fields = "$self->{fields}->{alias}->{address}, $self->{fields}->{goto}, $self->{fields}->{domain}";
 	my $values = "$opts{alias}, $opts{scalarTarget}, $opts{domain}";
 	
 	if(exists($opts{'created'})){
