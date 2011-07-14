@@ -3,13 +3,17 @@
 use strict;
 use Vpostmail;
 
-my $domain = $ARGV[0];
-if ($domain eq ''){
-	print "Error: I need a domain\n";
-	exit 1;
-}
 
 my $d = Vpostmail->new();
+
+my $domain = $ARGV[0];
+if ($domain eq ''){
+	foreach($d->listDomains){
+		print "$_\n";
+	}
+	exit 0;
+}
+
 $d->setDomain($domain);
 my %info = $d->getDomainInfo();
 foreach(sort(keys(%info))){
