@@ -96,6 +96,9 @@ sub new() {
 	$self->{tables} = \%_tables;
 	my %_fields = &_fields;
 	$self->{fields} = \%_fields;
+	unless(exists($self->{params}->{dbi})){
+		$self->{_params}->{maincf} = '/etc/postfix/main.cf';
+	}
 	if($self->{_params}->{maincf} =~ m@/@){
 		my @stuff = _dbiStuff($self->{_params}->{maincf});
 		$self->{_params}->{dbi} = $stuff[0];
