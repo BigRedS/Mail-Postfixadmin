@@ -2,6 +2,14 @@
 
 use Vpostmail;
 use strict;
+use Getopt::Std;
+my %opt;
+getopts('h', \%opt);
+
+if(exists($opt{h})){
+        print usage();
+        exit 0; 
+}
 
 my $domain = $ARGV[0];
 if ($domain eq ''){

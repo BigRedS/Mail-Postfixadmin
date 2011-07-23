@@ -2,7 +2,14 @@
 
 use strict;
 use Vpostmail;
+use Getopt::Std;
+my %opt;
+getopts('h', \%opt);
 
+if(exists($opt{h})){
+	print usage();
+	exit 0;
+}
 
 my $d = Vpostmail->new();
 
@@ -14,8 +21,15 @@ if ($domain eq ''){
 	exit 0;
 }
 
+my %info;
 $d->setDomain($domain);
-my %info = $d->getDomainInfo();
+if ($d->domainExists){
+	%info = $d->getDomainInfo();
+}else{
+	print STDERR "Domain $domain not found\n";
+	exit 1;
+}
+
 foreach(sort(keys(%info))){
 	unless($_ =~ /^mailboxes$/){
 		printf('%-14s%s', $_, $info{$_});
@@ -23,3 +37,15 @@ foreach(sort(keys(%info))){
 	}
 }
 
+sub usage{
+return <<EOF;
+vdominfo
+
+Usage: 
+  vdominfo <domain>
+
+Prints out info on a domain. No analogy with vpopmail's
+vdominfo is attempted.
+
+EOF
+}
