@@ -1,0 +1,54 @@
+#! /usr/bin/perl
+
+use Vpostmail;
+use strict;
+
+my $domain = shift;
+my $target = shift;
+
+
+if ($target eq ''){
+	print "Error. I need some arguments\n";
+	print usage();
+	exit 1;
+}
+
+
+my $d = Vpostmail->new();
+$d->setDomain($domain);
+if($d->domainExists()){
+	print "Error: Domain $domain already exists\n";
+	exit 1;
+}
+unless ($d->createAliasDomain( target => $target) ){
+	print STDERR "Error: $d->{errstr}\n";
+}
+
+
+if($d->domainIsAlias){
+	exit 0;
+}else{
+	print STDOUT "Something's up. I tried to create the domain but it doesn't exist.\n";
+	exit 1
+}
+
+sub usage{
+return <<EOF;
+
+Usage:
+  vaddaliasdomain [alias] [target]
+
+Alias must not already be an alias domain, but may already 
+be configured as a normal domain. In this case it's 
+converted into a regular one and nothing is done with its 
+mailboxes etc.
+
+The target may or may not exist on this system. A warning 
+is printed to stderr if it doesn't exist, but the alias is 
+created anyway. I've actually no idea what happens when this 
+is the case.
+
+EOF
+}
+
+#TODO: work out what happens when the target domain isn't here
