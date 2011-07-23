@@ -2,14 +2,43 @@
 
 use Vpostmail;
 use strict;
+use Getopt::Std;
 
-my $user = $ARGV[0];
-if ($user eq ''){
-        print "Error: I need a user\n";
+my %opt;
+my $user = pop;
+getopts('h', \%opt);
+
+if ($user eq '' || $user eq '-h' || exists($opt{h})){
+        print usage();
         exit 1;
 }
 
 my $d = Vpostmail->new();
-$d->setUser($user);
-$d->removeUser();
 
+$d->setUser($user);
+if ($d->userExists){
+	$d->removeUser();
+}else{
+	print STDERR "User $user doesn't exist\n";
+	exit 1;
+}
+
+if($d->userExists){
+	print STDERR "Something's up. I tried to delete the user but it's still there.\n";
+	exit 1;
+}
+
+
+sub usage{
+return <<EOF;
+vdeluser
+
+Removes a user from the system
+
+Usage:
+
+vdeluser [options] <user>
+
+
+EOF
+}

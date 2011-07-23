@@ -4,14 +4,14 @@ use Vpostmail;
 use strict;
 use Getopt::Std;
 my %opt;
+my $domain = pop;
 getopts('h', \%opt);
 
-if(exists($opt{h})){
+if(exists($opt{h}) || $domain eq '-h' ){
         print usage();
         exit 0; 
 }
 
-my $domain = $ARGV[0];
 
 if ($domain eq ''){
 	print usage();

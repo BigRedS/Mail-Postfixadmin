@@ -4,6 +4,7 @@ use Vpostmail;
 use strict;
 use Getopt::Std;
 my %opt;
+my $domain = pop;
 getopts('hU', \%opt);
 
 if(exists($opt{h})){
@@ -11,8 +12,7 @@ if(exists($opt{h})){
         exit 0; 
 }
 
-my $domain = $ARGV[0];
-if ($domain eq ''){
+if ($domain eq '' || $domain eq '-h' || exists($opt{h})){
 	print usage();
 	exit 1;
 }
@@ -57,7 +57,7 @@ Deletes a domain from the mail system.
 
 Usage:
 
-  vdeldomain <domain>
+  vdeldomain [options] <domain>
 
 Returns 0 on success, 1 on any sort of failure.
 EOF

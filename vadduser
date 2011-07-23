@@ -5,7 +5,7 @@ use strict;
 use Getopt::Std;
 use Data::Dumper;
 my %opt;
-my $user = shift;
+my $user = pop;
 getopts('hfgp:u:', \%opt);
 
 # f = 'force'
@@ -97,7 +97,7 @@ vadduser
 
 Adds a user to the mail system. Usage:
 
-vadduser <username> [options]
+vadduser [options] <username> 
 
 If the password is not supplied as an argument, it will be 
 prompted for.

@@ -4,7 +4,8 @@ use strict;
 use Vpostmail;
 use Getopt::Std;
 my %opt;
-getopts('h', \%opt);
+my $domain = pop;
+getopts('lh', \%opt);
 
 if(exists($opt{h})){
 	print usage();
@@ -13,8 +14,8 @@ if(exists($opt{h})){
 
 my $d = Vpostmail->new();
 
-my $domain = $ARGV[0];
 if ($domain eq ''){
+
 	foreach($d->listDomains){
 		print "$_\n";
 	}
@@ -24,28 +25,37 @@ if ($domain eq ''){
 my %info;
 $d->setDomain($domain);
 if ($d->domainExists){
-	%info = $d->getDomainInfo();
+	if(exists($opt{l})){
+		foreach($d->listUsers){
+			print $_."\n";
+		}
+	}else{
+		%info = $d->getDomainInfo();
+		foreach(sort(keys(%info))){
+			unless($_ =~ /^mailboxes$/){
+				printf('%-14s%s', $_, $info{$_});
+				print "\n";
+			}
+		}
+	}
 }else{
 	print STDERR "Domain $domain not found\n";
 	exit 1;
 }
 
-foreach(sort(keys(%info))){
-	unless($_ =~ /^mailboxes$/){
-		printf('%-14s%s', $_, $info{$_});
-		print "\n";
-	}
-}
 
 sub usage{
 return <<EOF;
 vdominfo
 
 Usage: 
-  vdominfo <domain>
+  vdominfo [options[ <domain>
 
 Prints out info on a domain. No analogy with vpopmail's
 vdominfo is attempted.
+
+Options:
+  -l   print a list of mailboxes rather than domain properties
 
 EOF
 }

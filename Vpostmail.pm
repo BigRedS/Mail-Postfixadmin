@@ -110,6 +110,16 @@ sub new() {
 			$self->{_params}->{dbuser},
 			$self->{_params}->{dbpass}
 	);
+	my @postconf;
+	eval{
+		@postconf = qx/postconf/ or die "$!";
+	};
+	if($@){
+		$self->{mail_location} = $!;
+	}else{
+		my $mail_location = (reverse(grep(/^\s+mail_location/, @postconf)))[0];
+		$self->{mail_location} = (split(/\s*=\s*/, $mail_location))[1];
+	}
 	bless($self,$class);
 	return $self;
 }
@@ -306,9 +316,9 @@ sub numUsers(){
 	my $query;
 	my $domain = $self->{_domain};
 	if ($domain){
-		$query = "select count(*) from `$self->{tables}->{alias}` where $self->{fields}->{alias}->{domain} = \'$self->{_domain}\'"
+		$query = "select count(*) from `$self->{tables}->{mailbox}` where $self->{fields}->{mailbox}->{domain} = \'$self->{_domain}\'"
 	}else{
-		$query = "select count(*) from `$self->{tables}->{alias}`";
+		$query = "select count(*) from `$self->{tables}->{mailbox}`";
 	}
 	my $numUsers = ($self->{dbi}->selectrow_array($query))[0];
 	$self->{infostr} = $query;
@@ -355,9 +365,9 @@ sub listUsers(){
 	my $regex = shift;
 	my $query;
 	if ($self->{_domain}){
-		$query = "select $self->{fields}->{alias}->{address} from $self->{tables}->{alias} where $self->{fields}->{alias}->{domain} = \'$self->{_domain}\'";
+		$query = "select $self->{fields}->{mailbox}->{username} from $self->{tables}->{mailbox} where $self->{fields}->{mailbox}->{domain} = \'$self->{_domain}\'";
 	}else{
-		$query = "select $self->{fields}->{alias}->{address} from $self->{tables}->{alias}";
+		$query = "select $self->{fields}->{mailbox}->{username} from $self->{tables}->{mailbox}";
 	}
 	my $sth = $self->{dbi}->prepare($query);
 	$sth->execute;
@@ -385,8 +395,8 @@ sub domainExists(){
 	if ($domain eq ''){
 		Carp::croak "No domain set";
 	}
-	if($self->domainIsAlias){
-		return $?;
+	if($self->domainIsAlias > 0){
+		return $self->domainIsAlias;
 	}
 	my $query = "select count(*) from $self->{tables}->{domain} where $self->{fields}->{domain}->{domain} = \'$domain\'";
 	my $sth = $self->{dbi}->prepare($query);
@@ -432,10 +442,12 @@ sub domainIsAlias(){
 		Carp::croak "No domain set";
 	}
 	my $query = "select count(*) from $self->{tables}->{alias_domain} where $self->{fields}->{alias_domain}->{alias_domain} = '$domain'";
+#	print "[ $query ]\n";
 	my $sth = $self->{dbi}->prepare($query);
 	$sth->execute;
 	my $count = ($sth->fetchrow_array())[0];
 	$self->{infostr} = $query;
+#	print "[ $count ]";
 	if ($count > 0){
 		return $count;
 	}else{
@@ -813,7 +825,7 @@ sub createDomain(){
 		Carp::croak "No domain set";
 	}
 
-	if ($self->domainExists()){
+	if ($self->domainExists){
 		$self->{infostr} = "Domain already exists ($self->{_domain})";
 		return 2;
 	}
@@ -968,6 +980,11 @@ sub createAliasDomain {
 	unless(exists($opts{'target'})){
 		Carp::croak "No target passed";
 	}
+
+	if($self->domainIsAlias){
+		$self->{errstr} = "Domain $self->{_domain} is already an alias";
+		return;
+	}
 	unless($self->domainExists){
 		$self->createDomain;
 	}
@@ -986,6 +1003,7 @@ sub createAliasDomain {
 		$values.=", '$opts{'active'}'";
 	}
 	my $query = "insert into $self->{tables}->{alias_domain} ( $fields ) values ( $values )";
+#	my $self->
 	my $sth = $self->{dbi}->prepare($query);
 	$sth->execute;
 	if($self->domainExists()){
@@ -1154,8 +1172,8 @@ sub removeDomain(){
 	if ($domain eq ''){
 		Carp::croak "No domain set";
 	}
-	if (!$self->domainExists){
-		$self->{infostr} = "Domain doesn't exist ($self->{infostr})";
+	unless ($self->domainExists > 0){
+		$self->{errstr} = "Domain doesn't exist";
 		return 2;
 	}
 	my @users = $self->listUsers();
@@ -1163,8 +1181,10 @@ sub removeDomain(){
 		$self->{_user} = $_;
 		$self->removeUser();
 	}
-	$self->{user} = undef;
-	my $query;
+	$self->{_user} = undef;
+	if($self->domainIsAlias){
+		$self->removeAliasDomain;
+	}
 	my $query = "delete from $self->{tables}->{domain} where $self->{fields}->{domain}->{domain} = '$domain'";
 	my $sth = $self->{dbi}->prepare($query);
 	$sth->execute;
@@ -1179,7 +1199,7 @@ sub removeDomain(){
 
 }
 
-=head3 removeAlias()
+=head3 removeAliasDomain()
 
 Removes the alias property of a domain. An alias domain is just a normal domain which happens to be listed 
 in a table matching it with a target; this function merely removes that row from that table and allows you
@@ -1188,7 +1208,7 @@ to go on to removeDomain(). Alternatively, you can use it to clear up having per
 
 =cut
 
-sub removeAlias{
+sub removeAliasDomain{
 	my $self = shift;
 	my $domain = $self->{_domain};
 	if ($domain eq ''){
@@ -1199,7 +1219,7 @@ sub removeAlias{
 		return 3;
 	}
 	my $query = "delete from $self->{tables}->{alias_domain} where $self->{fields}->{alias_domain}->{alias_domain} = '$domain'";
-	print $query;
+#	print $query;
 	my $sth = $self->{dbi}->prepare($query);
 	$sth->execute;
 }

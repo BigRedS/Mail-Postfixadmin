@@ -4,13 +4,21 @@ use strict;
 use Vpostmail;
 
 
+my $d = Vpostmail->new();
 my $user = $ARGV[0];
 if ($user eq ''){
 	print "Error: I need a user\n";
 	exit 1;
 }
+if ($user !~ /\@/){
+	my $domain = $user;
+	$d->setDomain($domain);
+	foreach($d->listUsers){
+		print "$_\n";
+	}
+	exit 0;
+}
 
-my $d = Vpostmail->new();
 $d->setUser($user);
 my %info = $d->getUserInfo();
 foreach(sort(keys(%info))){
