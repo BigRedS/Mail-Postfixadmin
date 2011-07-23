@@ -1,12 +1,26 @@
-! /usr/bin/perl
+#! /usr/bin/perl
 
 use Vpostmail;
 use strict;
+use Getopt::Std;
+use Data::Dumper;
+my %opt;
+my $user = shift;
+getopts('hfgp:u:', \%opt);
 
-my $user = $ARGV[0];
+# f = 'force'
+# g = generate a password
+# p = use supplied password
+
+
+
+if(exists($opt{h})){
+        print usage();
+        exit 0; 
+}
 
 if ($user eq ''){
-        print "Error. I need a user as an argument\n";
+        print usage();
         exit 1;
 }
 
@@ -16,7 +30,84 @@ if($d->userExists()){
         print "Error: User $user already exists\n";
         exit 1;
 }
-$d->createUser();
 
+my $domain;
+if ($user =~ /@(.+)$/){
+	$domain = $1;
+	$d->setDomain($domain);
+	unless($d->domainExists){
+		print STDERR "Domain $domain doesn't exist. Use -f to proceed anyway\n";
+		exit(1) unless(exists($opt{f}))
+	}
+}else{
+	print STDERR "$domain doesn't look like a complete email address. Use -f to proceed anyway\n";
+	exit(1) unless(exists($opt{f}));
+}
+
+my $password;
+if (exists($opt{g})){
+	$password = `pwgen 10 1`;
+	chomp $password;
+}elsif(exists($opt{p})){
+	$password = $opt{p};
+}
+while ($password eq ''){
+	$password = &getPassword()
+}
+
+$d->createUser();
+$d->changePassword($password);
+
+if($d->userExists()){
+	if (exists($opt{g})){
+		print "Password: $password\n";
+	}
+	exit 0;
+}else{
+	print STDERR "something's up, tried to create the user but it doesn't exist\n";
+	exit 1;
+}
+
+
+sub getPassword(){
+	my $pass1;
+	my $pass2;
+	print "Enter password: ";
+	system('stty','-echo');
+	chop($pass1=<STDIN>);
+	system('stty','echo');
+	print "\nConfirm password: ";
+	system('stty','-echo');
+	chop($pass2=<STDIN>);
+	system('stty','echo');
+
+	if ($pass1 eq $pass2){
+		print "\n";
+		return $pass1;
+	}else{
+		print "\npasswords do not match, try again:\n";
+		return;
+	}
+};
 exit;
+
+sub usage{
+	return <<EOF;
+vadduser
+
+Adds a user to the mail system. Usage:
+
+vadduser <username> [options]
+
+If the password is not supplied as an argument, it will be 
+prompted for.
+
+Options:
+
+  -f             ignore most sanity checks
+  -g             generate a password for the user (uses pwgen)
+  -p <password>  use supplied password
+
+EOF
+}
 
