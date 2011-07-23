@@ -5,11 +5,38 @@ use strict;
 
 my $domain = $ARGV[0];
 if ($domain eq ''){
-	print "Error: I need a domain\n";
+	print usage();
 	exit 1;
 }
 
 my $d = Vpostmail->new();
-$d->setDomain($domain);
-$d->removeDomain();
 
+$d->setDomain($domain);
+
+if ($d->domainExists){
+	$d->removeDomain();
+}else{
+	print STDERR "Domain $domain not found\n";
+	exit 1
+}
+
+if ($d->domainExists){
+	print STDERR "Error: I deleted it, but it's still there\n";
+	exit 1;
+}
+exit 0;
+
+sub usage {
+
+return <<EOF;
+vdeldomain
+
+Deletes a domain from the mail system.
+
+Usage:
+
+  vdeldomain <domain>
+
+Returns 0 on success, 1 on any sort of failure.
+EOF
+}
