@@ -13,11 +13,17 @@ if ($user eq '' || $user eq '-h' || exists($opt{h})){
         exit 1;
 }
 
+print "Handy warning: I can't even find mailboxes yet, let alone delete them :)\n";
+
 my $d = Vpostmail->new();
 
 $d->setUser($user);
 if ($d->userExists){
-	$d->removeUser();
+	if($d->userIsAlias){
+		$d->removeAliasUser();
+	}else{
+		$d->removeUser();
+	}
 }else{
 	print STDERR "User $user doesn't exist\n";
 	exit 1;
@@ -39,6 +45,7 @@ Usage:
 
 vdeluser [options] <user>
 
+Cannot delete mailboxes, though.
 
 EOF
 }
