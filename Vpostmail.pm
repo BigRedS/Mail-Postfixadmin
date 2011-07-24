@@ -351,7 +351,7 @@ sub listDomains(){
 }
 
 
-=head3 listDomains() 
+=head3 listUsers() 
 
 Returns a list of users on the system (or, if it's previously been defined, the domain). 
 
@@ -456,11 +456,20 @@ sub domainIsAlias(){
 	}
 }
 
+=head3 getAliasDomainTarget()
+
+Returns the target of the currently set domain if it's an alias;
+
+=cut
+
 sub getAliasDomainTarget(){
 	my $self = shift;
 	my $domain = $self->{_domain};
 	if ($domain eq ''){
 		Carp::croak "No domain set";
+	}
+	unless ($self->domainIsAlias){
+		Carp::croak "Domain $self->{_domain} is not an alias domain";
 	}
 	my $query = "select $self->{fields}->{alias_domain}->{target_domain} from $self->{tables}->{alias_domain} where $self->{fields}->{alias_domain}->{alias_domain} = '$domain'";
 	my $sth = $self->{dbi}->prepare($query);
