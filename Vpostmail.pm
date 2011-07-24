@@ -1039,7 +1039,7 @@ sub createAliasDomain {
 Causes the currently set user to be configured as an alias address
 
  $v->setUser('alias@example.com');
- $v->createAliasDomain( target => 'target@example.org');
+ $v->createAliasUser( target => 'target@example.org');
 
 will cause all mail sent to alias@example.com to be forwarded to target@example.org. 
 
@@ -1091,6 +1091,9 @@ sub createAliasUser {
 	}
 	if($self->userExists){
 		Carp::croak "User $self->{_user} already exists";
+	}
+	if($self->userIsAlias){
+		Carp::croak "User $self->{_user} is already an alias";
 	}
 	unless(exists($opts{domain})){
 		if($self->{_domain}){
