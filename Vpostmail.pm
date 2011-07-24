@@ -445,18 +445,32 @@ sub domainIsAlias(){
 		Carp::croak "No domain set";
 	}
 	my $query = "select count(*) from $self->{tables}->{alias_domain} where $self->{fields}->{alias_domain}->{alias_domain} = '$domain'";
-#	print "[ $query ]\n";
 	my $sth = $self->{dbi}->prepare($query);
 	$sth->execute;
 	my $count = ($sth->fetchrow_array())[0];
 	$self->{infostr} = $query;
-#	print "[ $count ]";
 	if ($count > 0){
 		return $count;
 	}else{
 		return;
 	}
 }
+
+sub getAliasDomainTarget(){
+	my $self = shift;
+	my $domain = $self->{_domain};
+	if ($domain eq ''){
+		Carp::croak "No domain set";
+	}
+	my $query = "select $self->{fields}->{alias_domain}->{target_domain} from $self->{tables}->{alias_domain} where $self->{fields}->{alias_domain}->{alias_domain} = '$domain'";
+	my $sth = $self->{dbi}->prepare($query);
+	$self->{infostr} = $query;
+	$sth->execute();
+	my @targets;
+	my $target = ($sth->fetchrow_array())[0];
+	return($target);
+}
+		
 
 =head3 domainIsTarget()
 
