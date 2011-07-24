@@ -13,12 +13,26 @@ if ($user eq ''){
 if ($user !~ /\@/){
 	my $domain = $user;
 	$d->setDomain($domain);
+	if ($d->domainIsAlias){
+		$d->setDomain($d->getAliasDomainTarget);
+	}
 	foreach($d->listUsers){
 		print "$_\n";
 	}
 	exit 0;
 }
 
+$d->setUser($user);
+if($d->userIsAlias){
+	$d->setUser($d->getAliasUserTarget);
+}
+$user =~ /@(.+)$/;
+my $domain = $1;
+$d->setDomain($domain);
+if ($d->domainIsAlias){
+	my $targetDomain = $d->getAliasDomainTarget;
+	$user =~ s/$domain/$targetDomain/;
+}
 $d->setUser($user);
 my %info = $d->getUserInfo();
 foreach(sort(keys(%info))){

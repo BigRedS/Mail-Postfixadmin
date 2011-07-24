@@ -15,9 +15,14 @@ if(exists($opt{h})){
 my $d = Vpostmail->new();
 
 if ($domain eq ''){
-
 	foreach($d->listDomains){
-		print "$_\n";
+		$d->setDomain($_);
+		if ($d->domainIsAlias){
+			my $target = ($d->getDomainAliasTarget);
+			print "$_\t(alias for $target)\n";
+		}else{
+			print "$_\n";
+		}
 	}
 	exit 0;
 }
@@ -25,6 +30,9 @@ if ($domain eq ''){
 my %info;
 $d->setDomain($domain);
 if ($d->domainExists){
+	if ($d->domainIsAlias){
+		$d->setDomain($d->getDomainAliasTarget);
+	}
 	if(exists($opt{l})){
 		foreach($d->listUsers){
 			print $_."\n";
