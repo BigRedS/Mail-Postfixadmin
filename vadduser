@@ -35,6 +35,17 @@ my $domain;
 if ($user =~ /@(.+)$/){
 	$domain = $1;
 	$d->setDomain($domain);
+	if ($d->domainIsAlias){
+		unless (exists($opt{f})){ 
+			my $oldDomain = $domain;
+			$domain = $d->getAliasDomainTarget;
+			$d->setDomain($domain); 
+			$user =~ s/$oldDomain/$domain/;
+			$d->setUser($user);			
+#			print "Domain: $domain\nUser:$user\n";
+#			exit 0;
+		}
+	}
 	unless($d->domainExists){
 		print STDERR "Domain $domain doesn't exist. Use -f to proceed anyway\n";
 		exit(1) unless(exists($opt{f}))
@@ -107,6 +118,11 @@ Options:
   -f             ignore most sanity checks
   -g             generate a password for the user (uses pwgen)
   -p <password>  use supplied password
+
+-f allows you to:
+  - add users to domains that don't exist
+  - add users that don't look like email addresses
+  - add users to an alias, rather than its target  
 
 EOF
 }
