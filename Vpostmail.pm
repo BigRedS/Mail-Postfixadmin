@@ -416,6 +416,9 @@ sub userExists(){
 	if ($user eq ''){
 		Carp::croak "No user set";
 	}
+	if ($self->userIsAlias){
+		return $self->userIsAlias;
+	}
 	my $query = "select count(*) from $self->{tables}->{mailbox} where $self->{fields}->{mailbox}->{username} = '$user'";
 	my $sth = $self->{dbi}->prepare($query);
 	$sth->execute;
@@ -1028,7 +1031,7 @@ will cause all mail sent to alias@example.com to be forwarded to target@example.
 
 You may forward to more than one address by passing an array of targets:
 
- $v->createAliasDomain( target => [ 'target@example.org'. 'target@example.net' ] );
+ $v->createAliasDomain( target => [ 'target@example.org', 'target@example.net' ] );
 
 or just a comma-separated string:
 
@@ -1062,12 +1065,13 @@ C<target> if you've passed a scalar, or the array passed joined on a comma.
 =cut
 
 
-sub CreateAliasUser {
+sub createAliasUser {
 	my $self = shift;
 	my %opts = @_;
 	if ($self->{_user} eq ''){
 		Carp::croak "No user set";
 	}
+	$opts{alias} = $self->{_user} if ${opts}{alias} eq '';
 	unless(exists($opts{'target'})){
 		Carp::croak "No target passed";
 	}
@@ -1091,8 +1095,8 @@ sub CreateAliasUser {
 		Carp::croak "Target passed as ". ref($opts{target}). ", expected array or scalar";
 	}
 
-	my $fields = "$self->{fields}->{alias}->{address}, $self->{fields}->{goto}, $self->{fields}->{domain}";
-	my $values = "$opts{alias}, $opts{scalarTarget}, $opts{domain}";
+	my $fields = "$self->{fields}->{alias}->{address}, $self->{fields}->{alias}->{goto}, $self->{fields}->{alias}->{domain}";
+	my $values = "\'$opts{alias}\', \'$opts{scalarTarget}\', \'$opts{domain}\'";
 	
 	if(exists($opts{'created'})){
 		$fields.=", $self->{fields}->{alias_domain}->{created}";
@@ -1106,11 +1110,11 @@ sub CreateAliasUser {
 		$fields.=", $self->{fields}->{alias_domain}->{active}";
 		$values.=", '$opts{'active'}'";
 	}
-	my $query = "insert into $self->{tables}->{alias_domain} ( $fields ) values ( $values )";
+	my $query = "insert into $self->{tables}->{alias} ( $fields ) values ( $values )";
 	my $sth = $self->{dbi}->prepare($query);
 	$sth->execute;
 	
-	if($self->isAliasUser){
+	if($self->userIsAlias){
 		return %opts;
 	}else{
 		return;
@@ -1224,6 +1228,21 @@ sub removeAliasDomain{
 	$sth->execute;
 }
 
+sub removeAliasUser{
+	my $self = shift;
+	my $user = $self->{_user};
+	if ($user eq ''){
+		Carp::croak "No user set";
+	}
+	if (!$self->userIsAlias){
+		$self->{infoStr} = "user is not an alias ($self->{_user})";
+		return 3;
+	}
+	my $query = "delete from $self->{tables}->{alias} where $self->{fields}->{alias}->{address} = '$user'";
+	my $sth = $self->{dbi}->prepare($query);
+	$sth->execute;
+	return 1;
+}
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
  # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
