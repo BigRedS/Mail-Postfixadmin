@@ -22,14 +22,18 @@ my $d = Vpostmail->new();
 $d->setDomain($domain);
 
 if ($d->domainExists){
-	unless(exists($opt{U})){
-		foreach($d->listUsers){
-			print "removing $_ ";
-			$d->setUser($_);
-			if($d->removeUser){
-				print "done\n"
-			}else{
-				print "ERROR: $d->{errstr}\n";
+	if($d->domainIsAlias){
+		$d->removeAliasDomain;
+	}else{
+		unless(exists($opt{U})){
+			foreach($d->listUsers){
+				print "removing $_ ";
+				$d->setUser($_);
+				if($d->removeUser){
+					print "done\n"
+				}else{
+					print "ERROR: $d->{errstr}\n";
+				}
 			}
 		}
 	}
