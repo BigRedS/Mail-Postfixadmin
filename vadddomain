@@ -7,7 +7,7 @@ my %opt;
 my $domain = pop;
 getopts('h', \%opt);
 
-if(exists($opt{h}) || $domain eq '-h' ){
+if(exists($opt{h}) || $domain eq '-h' || $domain eq ''){
         print usage();
         exit 0; 
 }
