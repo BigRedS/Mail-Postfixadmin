@@ -1,0 +1,61 @@
+#! /usr/bin/perl
+
+use strict;
+use Vpostmail;
+use Getopt::Std;
+
+my $d = Vpostmail->new();
+
+my $target = pop;
+my $user = pop;
+
+if ($target eq ''){
+	print STDERR usage();
+	exit(1);
+}
+
+my $v = Vpostmail->new();
+
+$v->setUser($user);
+if($v->userExists()){
+	print STDERR "Error: User $user already exists\n";
+	exit(1);
+}
+my $domain;
+if($user =~ /@(.+)$/){
+	$domain = $1;
+}else{
+	print STDERR "User $user doesn't look like an email address\n";
+	exit(1);
+}
+
+$d->setUser($user);
+$v->createAliasUser(
+	target => [$target],
+	domain => $domain
+);
+
+if($v->userIsAlias){
+	exit(0);
+}else{
+	print "Something's up, alias isn't there.\n";
+	exit(1);
+}
+
+
+
+sub usage(){
+	return <<EOF;
+
+vaddaliasuser
+
+Adds an alias user to the mail system.  
+
+Usage:
+
+  vaddaliasuser [user] [target]
+
+EOF
+}
+
+
