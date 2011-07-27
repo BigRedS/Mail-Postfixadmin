@@ -14,18 +14,18 @@ if ($target eq ''){
 }
 
 
-my $d = Vpostmail->new();
-$d->setDomain($domain);
-if($d->domainExists()){
+my $v = Vpostmail->new();
+$v->setDomain($domain);
+if($v->domainExists()){
 	print "Error: Domain $domain already exists\n";
 	exit 1;
 }
-unless ($d->createAliasDomain( target => $target) ){
-	print STDERR "Error: $d->{errstr}\n";
+unless ($v->createAliasDomain( target => $target) ){
+	print STDERR "Error: $v->{errstr}\n";
 }
 
 
-if($d->domainIsAlias){
+if($v->domainIsAlias){
 	exit 0;
 }else{
 	print STDOUT "Something's up. I tried to create the domain but it doesn't exist.\n";

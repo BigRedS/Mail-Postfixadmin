@@ -24,9 +24,9 @@ if ($user eq ''){
         exit 1;
 }
 
-my $d = Vpostmail->new();
-$d->setUser($user);
-if($d->userExists()){
+my $v = Vpostmail->new();
+$v->setUser($user);
+if($v->userExists()){
         print "Error: User $user already exists\n";
         exit 1;
 }
@@ -34,19 +34,19 @@ if($d->userExists()){
 my $domain;
 if ($user =~ /@(.+)$/){
 	$domain = $1;
-	$d->setDomain($domain);
-	if ($d->domainIsAlias){
+	$v->setDomain($domain);
+	if ($v->domainIsAlias){
 		unless (exists($opt{f})){ 
 			my $oldDomain = $domain;
-			$domain = $d->getAliasDomainTarget;
-			$d->setDomain($domain); 
+			$domain = $v->getAliasDomainTarget;
+			$v->setDomain($domain); 
 			$user =~ s/$oldDomain/$domain/;
-			$d->setUser($user);			
+			$v->setUser($user);			
 #			print "Domain: $domain\nUser:$user\n";
 #			exit 0;
 		}
 	}
-	unless($d->domainExists){
+	unless($v->domainExists){
 		print STDERR "Domain $domain doesn't exist. Use -f to proceed anyway\n";
 		exit(1) unless(exists($opt{f}))
 	}
@@ -66,10 +66,10 @@ while ($password eq ''){
 	$password = &getPassword()
 }
 
-$d->createUser();
-$d->changePassword($password);
+$v->createUser();
+$v->changePassword($password);
 
-if($d->userExists()){
+if($v->userExists()){
 	if (exists($opt{g})){
 		print "Password: $password\n";
 	}

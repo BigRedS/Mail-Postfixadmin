@@ -15,21 +15,21 @@ if ($user eq '' || $user eq '-h' || exists($opt{h})){
 
 print "Handy warning: I can't even find mailboxes yet, let alone delete them :)\n";
 
-my $d = Vpostmail->new();
+my $v = Vpostmail->new();
 
-$d->setUser($user);
-if ($d->userExists){
-	if($d->userIsAlias){
-		$d->removeAliasUser();
+$v->setUser($user);
+if ($v->userExists){
+	if($v->userIsAlias){
+		$v->removeAliasUser();
 	}else{
-		$d->removeUser();
+		$v->removeUser();
 	}
 }else{
 	print STDERR "User $user doesn't exist\n";
 	exit 1;
 }
 
-if($d->userExists){
+if($v->userExists){
 	print STDERR "Something's up. I tried to delete the user but it's still there.\n";
 	exit 1;
 }

@@ -18,13 +18,13 @@ if ($domain eq ''){
 	exit 1;
 }
 
-my $d = Vpostmail->new();
-$d->setDomain($domain);
-if($d->domainExists()){
+my $v = Vpostmail->new();
+$v->setDomain($domain);
+if($v->domainExists()){
 	print STDERR "Domain $domain already configured\n";
 	exit 1;
 }
-$d->createDomain();
+$v->createDomain();
 
 exit;
 

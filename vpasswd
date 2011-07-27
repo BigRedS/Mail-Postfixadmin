@@ -15,9 +15,9 @@ if ($user eq '' || $user eq '-h' || exists($opt{h})){
 }
 
 
-my $d = Vpostmail->new();
-$d->setUser($user);
-if (!$d->userExists()){
+my $v = Vpostmail->new();
+$v->setUser($user);
+if (!$v->userExists()){
 	print "ERROR user $user doesn't exist\n";
 	exit 1;
 }
@@ -33,7 +33,7 @@ if(exists($opt{p})){
 while ($password eq ''){
 	$password = &getPassword()
 }
-$d->changePassword($password);
+$v->changePassword($password);
 if($opt{g}){
 	print "Password: $password\n";
 }

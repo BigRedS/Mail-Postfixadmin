@@ -4,7 +4,7 @@ use strict;
 use Vpostmail;
 use Getopt::Std;
 
-my $d = Vpostmail->new();
+my $v = Vpostmail->new();
 
 my $target = pop;
 my $user = pop;
@@ -29,7 +29,7 @@ if($user =~ /@(.+)$/){
 	exit(1);
 }
 
-$d->setUser($user);
+$v->setUser($user);
 $v->createAliasUser(
 	target => [$target],
 	domain => $domain

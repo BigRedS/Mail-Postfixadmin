@@ -58,7 +58,7 @@ represent anything sensibly as objects. At best, it's an object-considering mean
 Creates and returns a new Vpostmail object. You want to provide some way of determining how to connect
 to the database. There are two ways:
 
- my $d = Vpostmail->new(
+ my $v = Vpostmail->new(
          dbi	=> 'DBI:mysql:dbname',
 	 dbuser	=> 'username',
 	 dbpass => 'password'
@@ -67,7 +67,7 @@ to the database. There are two ways:
 Which essentially is the three arguments to a DBI->connect. Alternatively, you can pass the location
 of postfix's C<main.cf> file:
 
- my $d = Vpostmail->new(
+ my $v = Vpostmail->new(
  	 maincf	=> '/etc/postfix/main.cf'
  )
 
@@ -1072,8 +1072,8 @@ You can pass three other keys in the hash, though only C<target> is required:
 
 In full:
 
- $d->setUser('alias@example.org');
- $d->createAliasUser(
+ $v->setUser('alias@example.org');
+ $v->createAliasUser(
 		target	=> [qw/target@example.org, target@example.net/],
 		domain	=> 'example.org',
 		modified => $v->now;
