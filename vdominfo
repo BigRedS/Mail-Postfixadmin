@@ -18,7 +18,7 @@ if ($domain eq ''){
 	foreach($v->listDomains){
 		$v->setDomain($_);
 		if ($v->domainIsAlias){
-			my $target = ($v->getDomainAliasTarget);
+			my $target = ($v->getAliasDomainTarget);
 			print "$_\t(alias for $target)\n";
 		}else{
 			print "$_\n";
