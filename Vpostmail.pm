@@ -99,11 +99,18 @@ sub new() {
 	unless(exists($self->{params}->{dbi})){
 		$self->{_params}->{maincf} = '/etc/postfix/main.cf';
 	}
+	my @stuff;
 	if($self->{_params}->{maincf} =~ m@/@){
-		my @stuff = _dbiStuff($self->{_params}->{maincf});
+		@stuff = _dbiStuff($self->{_params}->{maincf});
+	}elsif($self->{_params}->{mysqlconf} =~ m@/@){
+		@stuff = _parseMysqlConfigFile($self->{_params}->{mysqlconf});
+	}
+	if($stuff[2] =~ /.+/){
 		$self->{_params}->{dbi} = $stuff[0];
 		$self->{_params}->{dbuser} = $stuff[1];
 		$self->{_params}->{dbpass} = $stuff[2];
+	}else{
+		Carp::croak "No DB config";
 	}
 	$self->{dbi} = DBI->connect(
 			$self->{_params}->{dbi},
@@ -1310,6 +1317,25 @@ sub _dbiStuff{
 	my @dbiString = ("DBI:mysql:$db{'name'}:host=$db{'host'}", "$db{'user'}", "$db{'pass'}");
 	return @dbiString;
 }
+sub _parseMysqlConfigFile{
+	my $confFile = shift;
+	open(my $f, "<", $confFile) or die ("Error opening MySQL config file ($confFile) : $!");
+	my ($user, $password, $host, $port, %db);
+	while(<$f>){
+		my ($k,$v) = split(/\s*=\s*/, $_);
+		given($k){
+			when(/^user/){$db{user}=$v;}
+			when(/^password/){$db{pass}=$v;}
+			when(/^host/){$db{host}=$v;}
+			##TODO: find out how you're supposed to do this in a mysql.cnf:
+			when(/^database/){$db{name}=$v;}
+		}
+	}
+
+	my @dbiString = ("DBI:mysql:$db{'name'}:host=$db{'host'}", "$db{'user'}", "$db{'pass'}");
+	return @dbiString;
+}
+
 
 =head2 Utilities
 
