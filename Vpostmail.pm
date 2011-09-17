@@ -33,8 +33,7 @@ represent anything sensibly as objects. At best, it's an object-considering mean
 
 	my $v = Vpostmail->new();
 	$v->setDomain("example.org");
-	$v->createDomain(
-		description => 'an example',
+	$vdescription => 'an example',
 		num_mailboxes => '0'
 	);
 
@@ -96,37 +95,58 @@ sub new() {
 	$self->{tables} = \%_tables;
 	my %_fields = &_fields;
 	$self->{fields} = \%_fields;
-	unless(exists($self->{params}->{dbi})){
-		$self->{_params}->{maincf} = '/etc/postfix/main.cf';
-	}
-	my @stuff;
-	if($self->{_params}->{maincf} =~ m@/@){
-		@stuff = _dbiStuff($self->{_params}->{maincf});
-	}elsif($self->{_params}->{mysqlconf} =~ m@/@){
-		@stuff = _parseMysqlConfigFile($self->{_params}->{mysqlconf});
-	}
-	if($stuff[2] =~ /.+/){
-		$self->{_params}->{dbi} = $stuff[0];
-		$self->{_params}->{dbuser} = $stuff[1];
-		$self->{_params}->{dbpass} = $stuff[2];
+	$self->{_doveconf} = 'doveconf 2>/dev/null';
+
+	my @_dbi;
+	if($self->{_params}->{mysqlconf} =~ m@/@){
+		@_dbi = _parseMysqlConfigFile($self->{_params}->{mysqlconf});
 	}else{
-		Carp::croak "No DB config";
-	}
+		unless(exists($self->{_params}->{maincf})){
+			$self->{_params}->{maincf} = '/etc/postfix/main.cf';
+		}
+		@_dbi = _parsePostfixConfigFile($self->{_params}->{maincf});
+	}	
+	
+	$self->{_params}->{dbi} = $_dbi[0];
+	$self->{_params}->{dbuser} = $_dbi[1];
+	$self->{_params}->{dbpass} = $_dbi[2];
 	$self->{dbi} = DBI->connect(
-			$self->{_params}->{dbi},
-			$self->{_params}->{dbuser},
-			$self->{_params}->{dbpass}
+		$self->{_params}->{dbi},
+		$self->{_params}->{dbuser},
+		$self->{_params}->{dbpass}
 	);
+
+
+	if (!$self->{dbi}){
+		Carp::croak
+	}
+
+	$self->{storeCleartextPassword} = $self->{_params}->{storeCleartextPassword} || 0;
+#	if ($self->{storeCleartextPassword} > 0){
+#		unless(dbCanStoreCleartextPasswords() > 0){
+#			Carp::croak "missing db support for cleartext passwords; no column named $self->{fields}->{mailbox}->{password_cleartext} on table $self->{tables}->{mailbox}";
+#		}else{
+#			print "We can do cleartext. Whoo";
+#		}
+#	}	
+	print "[[$self->{storeCleartextPassword}]]";
 	my @postconf;
 	eval{
 		@postconf = qx/postconf/ or die "$!";
 	};
-	if($@){
-		$self->{mail_location} = $!;
-	}else{
-		my $mail_location = (reverse(grep(/^\s+mail_location/, @postconf)))[0];
-		$self->{mail_location} = (split(/\s*=\s*/, $mail_location))[1];
-	}
+#		if($@){
+#			$self->{mail_location} = $!;
+#		}else{
+#		print "==\n";
+#		$self->{_mailLocation} = (split(/\s*=\s*/, (reverse(grep(/^\s+mail_location/, qx/$self->{_doveconf}/)))[0]))[1];
+		$self->{mailLocation} = (reverse(grep(/\s*mail_location/, qx/$self->{_doveconf}/)))[0];
+		chomp $self->{mailLocation};
+#		$self->{mailLocation} =~ s/^[^=]=\s*//;
+
+#		print $self->{_mailLocation}."\n";
+#		print "==\n";
+#		$self->{mail_location} = (split(/\s*=\s*/, $mail_location))[1];
+#	}
 	bless($self,$class);
 	return $self;
 }
@@ -780,11 +800,15 @@ sub changePassword(){
 	}
 	
 	my $cryptedPassword = $self->cryptPassword($password);
-
-	my $query = "update `$self->{tables}->{mailbox}` set `$self->{fields}->{mailbox}->{password}`=? where `$self->{fields}->{mailbox}->{username}`='$user'";
+	my $query;
+	if($self->{storeCleartextPassword} > 0){
+		$query = "update `$self->{tables}->{mailbox}` set `$self->{fields}->{mailbox}->{password}`='$cryptedPassword', `$self->{fields}->{mailbox}->{password_clear}`='$password' where `$self->{fields}->{mailbox}->{username}`='$user'";
+	}else{
+		$query = "update `$self->{tables}->{mailbox}` set `$self->{fields}->{mailbox}->{password}`='$cryptedPassword' where `$self->{fields}->{mailbox}->{username}`='$user'";
+	}
 	$self->{infostr} = $query;
 	my $sth = $self->{dbi}->prepare($query);
-	$sth->execute($cryptedPassword);
+	$sth->execute();
 	return $cryptedPassword;
 }
 
@@ -1283,7 +1307,7 @@ sub removeAliasUser{
 # dbConnection
 # Deduces db details, returns an array of arguments to a 
 # $dbi->connect()
-sub _dbiStuff{
+sub _parsePostfixConfigFile{
 	my $confFile = shift;
 	my $maincf = shift;
 	my $somefile;
@@ -1318,10 +1342,12 @@ sub _dbiStuff{
 	return @dbiString;
 }
 sub _parseMysqlConfigFile{
+	local $/ = "\n";
 	my $confFile = shift;
 	open(my $f, "<", $confFile) or die ("Error opening MySQL config file ($confFile) : $!");
 	my ($user, $password, $host, $port, %db);
-	while(<$f>){
+	foreach(<$f>){
+		chomp $_;
 		my ($k,$v) = split(/\s*=\s*/, $_);
 		given($k){
 			when(/^user/){$db{user}=$v;}
@@ -1332,12 +1358,24 @@ sub _parseMysqlConfigFile{
 		}
 	}
 
-	my @dbiString = ("DBI:mysql:$db{'name'}:host=$db{'host'}", "$db{'user'}", "$db{'pass'}");
+	my @dbiString = ("DBI:mysql:$db{'name'}:host=$db{'host'}:$db{'port'}", "$db{'user'}", "$db{'pass'}");
 	return @dbiString;
 }
 
 
 =head2 Utilities
+
+=cut
+
+sub dbCanStoreCleartextPasswords(){
+	my $self = shift;
+	my @fields = $self->{dbi}->selectrow_array("show columns from $self->{tables}->{mailbox}");
+	if (grep(/($self->{fields}->{mailbox}->{password_cleartext})/, @fields)){
+		return $1;
+	}else{
+		return
+	}
+}
 
 =head3 now()
 
@@ -1408,7 +1446,8 @@ sub _fields(){
 				'domain'	=> 'domain',
 				'created'	=> 'created',
 				'modified'	=> 'modified',
-				'active'	=> 'active'
+				'active'	=> 'active',
+				'password_clear' => 'password_clear'
 	};
 	$fields{'domain_admins'} = {
 	                        'domain'        => 'domain',
@@ -1558,7 +1597,8 @@ Currently, the assumptions made of the database schema are very small. We asssum
  +----------+--------------+------+-----+---------------------+-------+
  6 rows in set (0.00 sec)
 
-And, er, that's it.
+And, er, that's it. If you wish to store cleartext passwords (by passing a value greater than 0 for 'storeCleartextPassword'
+to the constructor) you'll need a 'password_cleartext' column on the mailbox field. 
 
 C<getFields> returns C<%_fields>, C<getTables %_tables>. C<setFields> and C<setTables> resets them to the hash passed as an 
 argument. It does not merge the two hashes.
