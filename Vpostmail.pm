@@ -140,7 +140,6 @@ sub new() {
 #			print "We can do cleartext. Whoo";
 #		}
 #	}	
-	print "[[$self->{storeCleartextPassword}]]";
 	my @postconf;
 	eval{
 		@postconf = qx/postconf/ or die "$!";
