@@ -78,6 +78,17 @@ If C<main.cf> is passed the C<dbi>, C<dbuser> and C<dbpass> values are ignored a
 data found in the files. C<main.cf> is deemed to have been 'passed' if its value contains a 
 forward-slash ('C</>').
 
+You may also instruct the object to store plain text passwords by setting 'storeClearTextPassword' to
+a value greater than 0:
+
+my $v = Vpostmail->new(
+        storeCleartextPassword => 1, 
+); 
+
+Currently, there's no checking; the plan is that this will be set automagically based on the presence of
+a field to store the cleartext password in.
+
+
 =cut
 
 package Vpostmail;
