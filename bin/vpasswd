@@ -1,0 +1,64 @@
+#! /usr/bin/perl
+
+use strict;
+use Mail::Vpostmail;
+use Getopt::Std;
+
+my $user = pop;
+my %opt;
+getopts('hgp', \%opt);
+
+
+if ($user eq '' || $user eq '-h' || exists($opt{h})){
+        print "Error. I need a user as an argument\n";
+        exit 1;
+}
+
+
+my $v = Mail::Vpostmail->new(
+	storeCleartextPassword => 1,
+	);
+$v->setUser($user);
+if (!$v->userExists()){
+	print "ERROR user $user doesn't exist\n";
+	exit 1;
+}
+
+my $password;
+if(exists($opt{p})){
+	$password = $opt{p};
+}elsif(exists($opt{g})){
+	$password = `pwgen 10 1`;
+	chomp $password;
+}
+
+while ($password eq ''){
+	$password = &getPassword()
+}
+$v->changePassword($password);
+if($opt{g}){
+	print "Password: $password\n";
+}
+
+
+
+sub getPassword(){
+	my $pass1;
+	my $pass2;
+	print "Enter password: ";
+	system('stty','-echo');
+	chop($pass1=<STDIN>);
+	system('stty','echo');
+	print "\nConfirm password: ";
+	system('stty','-echo');
+	chop($pass2=<STDIN>);
+	system('stty','echo');
+
+	if ($pass1 eq $pass2){
+		print "\n";
+		return $pass1;
+	}else{
+		print "\npasswords do not match, try again:\n";
+		return;
+	}
+};

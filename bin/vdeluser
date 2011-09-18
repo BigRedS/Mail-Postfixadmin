@@ -1,0 +1,51 @@
+#! /usr/bin/perl
+
+use Mail::Vpostmail;
+use strict;
+use Getopt::Std;
+
+my %opt;
+my $user = pop;
+getopts('h', \%opt);
+
+if ($user eq '' || $user eq '-h' || exists($opt{h})){
+        print usage();
+        exit 1;
+}
+
+print "Handy warning: I can't even find mailboxes yet, let alone delete them :)\n";
+
+my $v = Mail::Vpostmail->new();
+
+$v->setUser($user);
+if ($v->userExists){
+	if($v->userIsAlias){
+		$v->removeAliasUser();
+	}else{
+		$v->removeUser();
+	}
+}else{
+	print STDERR "User $user doesn't exist\n";
+	exit 1;
+}
+
+if($v->userExists){
+	print STDERR "Something's up. I tried to delete the user but it's still there.\n";
+	exit 1;
+}
+
+
+sub usage{
+return <<EOF;
+vdeluser
+
+Removes a user from the system
+
+Usage:
+
+vdeluser [options] <user>
+
+Cannot delete mailboxes, though.
+
+EOF
+}

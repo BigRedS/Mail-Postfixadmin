@@ -1,0 +1,44 @@
+#! /usr/bin/perl
+
+use Mail::Vpostmail;
+use strict;
+use Getopt::Std;
+my %opt;
+my $domain = pop;
+getopts('h', \%opt);
+
+if(exists($opt{h}) || $domain eq '-h' || $domain eq ''){
+        print usage();
+        exit 0; 
+}
+
+
+if ($domain eq ''){
+	print usage();
+	exit 1;
+}
+
+my $v = Mail::Vpostmail->new();
+$v->setDomain($domain);
+if($v->domainExists()){
+	print STDERR "Domain $domain already configured\n";
+	exit 1;
+}
+$v->createDomain();
+
+exit;
+
+sub usage{
+
+return <<EOF;
+vadddomain
+
+Adds a domain to the mail system. 
+
+Usage:
+
+  vadddomain <domain>
+
+Returns 0 on success, 1 on any sort of failure
+EOF
+}

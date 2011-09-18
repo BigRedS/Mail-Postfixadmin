@@ -1,0 +1,68 @@
+#! /usr/bin/perl
+
+use Mail::Vpostmail;
+use strict;
+use Getopt::Std;
+my %opt;
+my $domain = pop;
+getopts('hU', \%opt);
+
+if(exists($opt{h})){
+        print usage();
+        exit 0; 
+}
+
+if ($domain eq '' || $domain eq '-h' || exists($opt{h})){
+	print usage();
+	exit 1;
+}
+
+my $v = Mail::Vpostmail->new();
+
+$v->setDomain($domain);
+
+if ($v->domainExists){
+	if($v->domainIsAlias){
+		$v->removeAliasDomain;
+	}else{
+		unless(exists($opt{U})){
+			foreach($v->listUsers){
+				print "removing $_ ";
+				$v->setUser($_);
+				if($v->removeUser){
+					print "done\n"
+				}else{
+					print "ERROR: $v->{errstr}\n";
+				}
+			}
+		}
+	}
+	print "removing domain $domain ";
+	$v->removeDomain();
+}else{
+	print STDERR "Domain $domain not found\n";
+	exit 1
+}
+
+if ($v->domainExists){
+	print STDERR "Error: I deleted it, but it's still there\n";
+	exit 1;
+}else{
+	print "done\n";
+}
+exit 0;
+
+sub usage {
+
+return <<EOF;
+vdeldomain
+
+Deletes a domain from the mail system.
+
+Usage:
+
+  vdeldomain [options] <domain>
+
+Returns 0 on success, 1 on any sort of failure.
+EOF
+}

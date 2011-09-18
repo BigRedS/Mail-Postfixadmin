@@ -1,41 +1,63 @@
-vpostmail
-=========
+Mail-Vpostmail version 0.01
+===========================
 
-Vpostmail is an attempt to provide the same command line tools as provided in
-Vpopmail, but for a Postfix/Dovecot/MySQL environment. Alternatively, it's an
-attempt to provide a command-line version of postfixadmin.
+Vpostmail is a CLI-interface to the same system for which Postfixadmin
+is a web interface. It provides a Perl module (Mail::Vpostmail), and 
+9 scripts which make use of it, aping those provided by Inter7's vpopmail 
+virtual mailbox thingy:
 
-Vpostmail.pm is (will be) a module providing the functions, and once that's done
-I'll write some scripts. 
+ vaddaliasdomain
+ vaddaliasuser
+ vadddomain
+ vadduser
+ vdeldomain
+ vdeluser
+ vdominfo
+ vpasswd
+ vuserinfo
 
-Documentation for the module is at 
- http://avi.co/Vpostmail.html
+It's woth noting, however, that they're equivalent in name alone, they're
+not a drop-in replacement for use in scripts, see the module for that.
 
-And the scripts to be written are:
+It is tested on, and designed for, a Postfix/Dovecot/MySQL system using
+md5crypt for passwords. There's nothing to support PostgreSQL, and I've 
+no idea if anything would need changing for Courier.
 
-vadddomain domain.name
-  Create a domain with default settings
+It is very much a work in progress currently but, it is hoped, better
+than nothing.
 
-vdeldomain domain.name
-  Delete a domain
+It is hosted on GitHub, issues and pull requests welcome :)
 
-vmoddomain [options] domain.name
-  Configure a domain, by passing options to it
+https://github.com/BigRedS/vpostmail
 
-vdominfo domain.name
-  Get information about a domain
+INSTALLATION
 
-vadduser user@domain.name password
-  Create a user, setting the password if supplied
+To install this module type the following:
 
-vdeluser user@domain.name
-  Delete a user
+   perl Makefile.PL
+   make
+   make test
+   make install
 
-vpasswd user@domain.name password
-  Set a user's password, which may be supplied as an argument, else prompt for it
+If you'd rather not have the scripts installed, and just want the module,
+you'll need to edit the Makefile.PL and comment-out the EXE_FILES line.
 
-vuserinfo user@domain.name
-  Get information about a user
+DEPENDENCIES
 
-vmodduser [options] domain.name
-  Configure a user by passing options to it
+This module requires these other modules and libraries:
+
+  DBI
+  Crypt::PasswdMD5
+
+(which are libdbi-perl and libcrypt-passwdmd5-perl respectively
+in Debian)
+
+COPYRIGHT AND LICENCE
+
+Copyright (C) 2011 by Avi Greenbury
+
+This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself, either Perl version 5.10 or,
+at your option, any later version of Perl 5 you may have available.
+
+

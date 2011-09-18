@@ -1,0 +1,45 @@
+#! /usr/bin/perl
+
+use strict;
+use Mail::Vpostmail;
+
+
+my $v = Mail::Vpostmail->new();
+my $user = $ARGV[0];
+if ($user eq ''){
+	print "Error: I need a user\n";
+	exit 1;
+}
+if ($user !~ /\@/){
+	my $domain = $user;
+	$v->setDomain($domain);
+	if ($v->domainIsAlias){
+		$v->setDomain($v->getAliasDomainTarget);
+	}
+	foreach($v->listUsers){
+		print "$_\n";
+	}
+	exit 0;
+}
+
+$v->setUser($user);
+if($v->userIsAlias){
+	$v->setUser($v->getAliasUserTarget);
+}
+$user =~ /@(.+)$/;
+my $domain = $1;
+$v->setDomain($domain);
+if ($v->domainIsAlias){
+	my $targetDomain = $v->getAliasDomainTarget;
+	$user =~ s/$domain/$targetDomain/;
+}
+$v->setUser($user);
+my %info = $v->getUserInfo();
+foreach(sort(keys(%info))){
+	unless($_ =~ /^mailboxes$/){
+		printf('%-14s%s', $_, $info{$_});
+		print "\n";
+	}
+}
+
+

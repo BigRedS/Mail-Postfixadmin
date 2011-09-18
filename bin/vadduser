@@ -1,0 +1,129 @@
+#! /usr/bin/perl
+
+use Mail::Vpostmail;
+use strict;
+use Getopt::Std;
+use Data::Dumper;
+my %opt;
+my $user = pop;
+getopts('hfgp:u:', \%opt);
+
+# f = 'force'
+# g = generate a password
+# p = use supplied password
+
+
+
+if(exists($opt{h})){
+        print usage();
+        exit 0; 
+}
+
+if ($user eq ''){
+        print usage();
+        exit 1;
+}
+
+my $v = Mail::Vpostmail->new();
+$v->setUser($user);
+if($v->userExists()){
+        print "Error: User $user already exists\n";
+        exit 1;
+}
+
+my $domain;
+if ($user =~ /@(.+)$/){
+	$domain = $1;
+	$v->setDomain($domain);
+	if ($v->domainIsAlias){
+		unless (exists($opt{f})){ 
+			my $oldDomain = $domain;
+			$domain = $v->getAliasDomainTarget;
+			$v->setDomain($domain); 
+			$user =~ s/$oldDomain/$domain/;
+			$v->setUser($user);			
+#			print "Domain: $domain\nUser:$user\n";
+#			exit 0;
+		}
+	}
+	unless($v->domainExists){
+		print STDERR "Domain $domain doesn't exist. Use -f to proceed anyway\n";
+		exit(1) unless(exists($opt{f}))
+	}
+}else{
+	print STDERR "$domain doesn't look like a complete email address. Use -f to proceed anyway\n";
+	exit(1) unless(exists($opt{f}));
+}
+
+my $password;
+if (exists($opt{g})){
+	$password = `pwgen 10 1`;
+	chomp $password;
+}elsif(exists($opt{p})){
+	$password = $opt{p};
+}
+while ($password eq ''){
+	$password = &getPassword()
+}
+
+$v->createUser();
+$v->changePassword($password);
+
+if($v->userExists()){
+	if (exists($opt{g})){
+		print "Password: $password\n";
+	}
+	exit 0;
+}else{
+	print STDERR "something's up, tried to create the user but it doesn't exist\n";
+	exit 1;
+}
+
+
+sub getPassword(){
+	my $pass1;
+	my $pass2;
+	print "Enter password: ";
+	system('stty','-echo');
+	chop($pass1=<STDIN>);
+	system('stty','echo');
+	print "\nConfirm password: ";
+	system('stty','-echo');
+	chop($pass2=<STDIN>);
+	system('stty','echo');
+
+	if ($pass1 eq $pass2){
+		print "\n";
+		return $pass1;
+	}else{
+		print "\npasswords do not match, try again:\n";
+		return;
+	}
+};
+exit;
+
+sub usage{
+	return <<EOF;
+vadduser
+
+Adds a user to the mail system. Usage:
+
+vadduser [options] <username> 
+
+If the password is not supplied as an argument, it will be 
+prompted for.
+
+Options:
+
+  -f             ignore most sanity checks
+  -g             generate a password for the user (uses pwgen)
+  -p <password>  use supplied password
+
+-f allows you to:
+  - add users to domains that don't exist
+  - add users that don't look like email addresses
+  - add users to an alias, rather than its target  
+
+EOF
+}
+
