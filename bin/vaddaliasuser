@@ -6,10 +6,10 @@ use Getopt::Std;
 
 my $v = Mail::Vpostmail->new();
 
-my $target = pop;
-my $user = pop;
+my $user = shift;
+my @targets = @ARGV;
 
-if ($target eq ''){
+if ($#targets < 1){
 	print STDERR usage();
 	exit(1);
 }
@@ -30,8 +30,9 @@ if($user =~ /@(.+)$/){
 }
 
 $v->setUser($user);
+my $targets = join(', ', @targets);
 $v->createAliasUser(
-	target => [$target],
+	target => $targets, 
 	domain => $domain
 );
 
@@ -53,7 +54,7 @@ Adds an alias user to the mail system.
 
 Usage:
 
-  vaddaliasuser [user] [target]
+  vaddaliasuser [user] [target] ([another target]...)
 
 EOF
 }

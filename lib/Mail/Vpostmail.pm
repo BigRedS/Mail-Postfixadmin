@@ -616,26 +616,38 @@ sub getUserAliases{
 
 }
 
-=head3 getUserTargets()
+=head3 getAliasUserTargetArray()
 
-Returns a list of addresses for which the current user is an alias.
+Returns an array of addresses for which the current user is an alias.
 
 =cut
 
-sub getUserTargets{
+sub getAliasUserTargetArray{
 	my $self = shift;
 	my $user = $self->{_user};
 	if ($user eq ''){ Carp::croak "No user set";}
-	my $query = "select $self->{fields}->{alias}->{goto} from $self->{tables}->{alias} where $self->{fields}->{alias}->{address} like '%user%')";
+	my $query = "select $self->{fields}->{alias}->{goto} from $self->{tables}->{alias} where $self->{fields}->{alias}->{address} like '%$user%'";
 	my $sth = $self->{dbi}->prepare($query);
 	$sth->execute;
-	my $goto;
+	my @gotos;
 	while(my @row = $sth->fetchrow_array()){
-		$goto.=", $row[0]";
+		push(@gotos,$row[0]);
 	}
-	my @gotos = split(/\s*,\s*/, $goto);
 	return @gotos;
+}
 
+=head3 getAliasUserTarget()
+
+Returns a string which is a comma-separated list of addresses for which the current user is an alias. 
+
+=cut
+
+sub getAliasUserTarget{
+	my $self = shift;
+	my $user = $self->{_user};
+	my @targets = $self->getAliasUserTargetArray;
+	my $targets = join(', ', @targets);
+	return $targets;
 }
 =head3 getUserInfo()
 
@@ -1097,11 +1109,7 @@ Causes the currently set user to be configured as an alias address
 
 will cause all mail sent to alias@example.com to be forwarded to target@example.org. 
 
-You may forward to more than one address by passing an array of targets:
-
- $v->createAliasDomain( target => [ 'target@example.org', 'target@example.net' ] );
-
-or just a comma-separated string:
+You may forward to more than one address by passing a comma-separated string:
 
  $v->createAliasDomain( target => 'target@example.org, target@example.net');
 
@@ -1158,13 +1166,8 @@ sub createAliasUser {
 			Carp::croak "Error determining domain from user '$self->{_user}'";
 		}
 	}
-	if(ref($opts{target}) eq 'ARRAY'){
-		$opts{scalarTarget} = join(/, /, @{$opts{target}});
-	}elsif(ref($opts{target}) eq 'SCALAR'){
-		$opts{scalarTarget} = $opts{target};
-	}else{
-		Carp::croak "Target passed as ". ref($opts{target}). ", expected array or scalar";
-	}
+	#TODO: Accept arrays
+	$opts{scalarTarget} = $opts{target};
 
 	my $fields = "$self->{fields}->{alias}->{address}, $self->{fields}->{alias}->{goto}, $self->{fields}->{alias}->{domain}";
 	my $values = "\'$opts{alias}\', \'$opts{scalarTarget}\', \'$opts{domain}\'";

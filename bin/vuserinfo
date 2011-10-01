@@ -10,6 +10,9 @@ if ($user eq ''){
 	print "Error: I need a user\n";
 	exit 1;
 }
+
+# If the username doesn't contain an '@' it's a 
+# domain name, so we'll print all the users:
 if ($user !~ /\@/){
 	my $domain = $user;
 	$v->setDomain($domain);
@@ -23,9 +26,34 @@ if ($user !~ /\@/){
 }
 
 $v->setUser($user);
-if($v->userIsAlias){
-	$v->setUser($v->getAliasUserTarget);
+unless($v->userExists){
+	print "$user doesn't exist\n";
+	exit 1;
 }
+
+# Handle aliases gracefully:
+if($v->userIsAlias){
+	my $target = $v->getAliasUserTarget;
+	if ($target =~ /,/){
+		print "$user is an alias for:\n";
+		foreach(split(/,\s*/, $target)){
+			print $_."\n";
+		}
+		exit 1;
+	}else{
+		$v->setUser($target);
+		print "$user is an alias for $target";
+	}
+	if ($v->userExists){
+		print "\n";
+	}else{
+		print " which is not configured on this system\n";
+	}
+}
+
+# To avoid confusion post the alias dealings, we'll reset our idea
+# of the user
+$user = $v->getUser();
 $user =~ /@(.+)$/;
 my $domain = $1;
 $v->setDomain($domain);
@@ -33,6 +61,7 @@ if ($v->domainIsAlias){
 	my $targetDomain = $v->getAliasDomainTarget;
 	$user =~ s/$domain/$targetDomain/;
 }
+
 $v->setUser($user);
 my %info = $v->getUserInfo();
 foreach(sort(keys(%info))){
@@ -41,5 +70,3 @@ foreach(sort(keys(%info))){
 		print "\n";
 	}
 }
-
-
