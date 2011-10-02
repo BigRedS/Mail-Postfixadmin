@@ -42,3 +42,46 @@ Usage:
 Returns 0 on success, 1 on any sort of failure
 EOF
 }
+
+=pod
+
+=head1 NAME
+
+vadddomain - add a domain to the system
+
+=head1 DESCRIPTION
+
+This is part of Avi's collection of scripts to emulate vpopmail's scripts 
+on a Postfix/MySQL system. 
+
+Any feature-parity is purely coincidental.
+
+=head1 SYNOPSIS
+
+vadddomain domain name
+
+=head1 EXAMPLES
+
+add example.net:
+ vadddomain example.net
+
+=head1 EXIT STATUS
+
+Exits 0 on success, 1 on any sort of failure. Useful error messages are 
+used as a poor substitute for sensible exit statuses.
+
+=head1 BUGS
+
+There's currently no way to modify domains in this collection of scripts 
+(though the module offers functions to do it). There's also no way to 
+create domains with anything but defaults, so you'll have to make do with 
+those for now.
+
+=head1 AUTHOR
+
+Avi wrote this.
+
+http://avi.co
+
+http://github.com/BigRedS/vpostmail
+

@@ -70,3 +70,44 @@ foreach(sort(keys(%info))){
 		print "\n";
 	}
 }
+
+
+=pod
+
+=head1 NAME
+
+vuserinfo - get information about a user
+
+=head1 DESCRIPTION
+
+This is part of Avi's collection of scripts to emulate vpopmail's 
+scripts on a Postfix/MySQL system. 
+
+Any feature-parity is purely coincidental.
+
+=head1 SYNOPSIS
+
+vuserinfo user@domain.com
+
+=head1 OPTIONS
+
+No.
+
+=head1 EXAMPLES
+
+View the details of user@example.net:
+  vuserinfo example.net
+
+=head1 EXIT STATUS
+
+Exits 0 on success, non-zero on failure. Useful error messages are used 
+as a poor substitute for sensible exit statuses.
+
+=head1 AUTHOR
+
+Avi wrote this.
+
+http://avi.co
+
+http://github.com/BigRedS/vpostmail
+

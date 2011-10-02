@@ -95,3 +95,56 @@ Options:
 EOF
 
 }
+
+
+
+
+
+=pod
+
+=head1 NAME
+
+vpasswd - change a user's password
+
+=head1 DESCRIPTION
+
+This is part of Avi's collection of scripts to emulate vpopmail's scripts on a Postfix/MySQL system. 
+Any feature-parity is purely coincidental.
+
+=head1 SYNOPSIS
+
+vpasswd -g -p <password> [user name]
+
+=head1 OPTIONS
+
+  -h       show a brief help
+  -g       generate a password
+  -p text  set user's password to 'text'
+  -v       be verbose; prints both the username and the password for the user, for use in a for loop.
+
+
+=head1 EXAMPLES
+
+Set a password to a random string:
+
+  vpasswd -g user@example.org
+
+Set a password to 'areallysecurepassword':
+ 
+  cpasswd -p areallysecurepassword user@example.net
+
+Set a bunch of passwords and get nice a easy-to-email-to-the-customer list of all their usernames and passwords:
+
+  for i in user1@example.net user2@example.net user3@example.net user1@example.org user2@example.org; do vpasswd -gv $i; done
+
+=head1 EXIT STATUS
+
+Exits 0 on success, non-zero on failure. Useful error messages are used as a poor substitute for sensible exit statuses.
+
+=head1 AUTHOR
+
+Avi wrote this.
+
+http://avi.co
+
+http://github.com/BigRedS/vpostmail

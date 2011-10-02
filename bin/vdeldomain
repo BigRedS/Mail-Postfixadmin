@@ -63,6 +63,54 @@ Usage:
 
   vdeldomain [options] <domain>
 
+Options:
+
+  -U   also delete all the users
 Returns 0 on success, 1 on any sort of failure.
 EOF
 }
+
+
+
+=pod
+
+=head1 NAME
+
+vdeldomain - remove a domain from the mail system
+
+=head1 DESCRIPTION
+
+This is part of Avi's collection of scripts to emulate vpopmail's 
+scripts on a Postfix/MySQL system. 
+
+Any feature-parity is purely coincidental.
+
+=head1 SYNOPSIS
+
+vdeldomain [options] <domain>
+
+=head1 OPTIONS
+
+   -U   Also delete the users associated with the domain (and their mailboxes). Note
+        that the default is to be non-destructive rather than non-surprising.
+
+=head1 EXAMPLES
+
+Delete example.net and all its users:
+   vdeldomain -U example.net
+
+=head1 EXIT STATUS
+
+Exits 0 on success, non-zero on failure. Useful error messages are used 
+as a poor substitute for sensible exit statuses.
+
+=head1 AUTHOR
+
+Avi wrote this.
+
+http://avi.co
+
+http://github.com/BigRedS/vpostmail
+
+
+

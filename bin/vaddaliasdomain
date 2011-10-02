@@ -52,3 +52,49 @@ EOF
 }
 
 #TODO: work out what happens when the target domain isn't here
+
+
+=pod
+
+=head1 NAME
+
+vaddaliasdomain - add an alias domain to the system
+
+=head1 DESCRIPTION
+
+This is part of Avi's collection of scripts to emulate vpopmail's scripts on a Postfix/MySQL system. 
+Any feature-parity is purely coincidental.
+
+vaddaliasdomain adds an alias domain such that mail delivered to user@aliasdomain is instead delivered
+to user@targetdomain; currently each alias domain may only have one target. 
+
+If the supplied alias is already a domain on the system it is coverted into an alias domain but its mailboxes and other config is left as-is.
+
+The target need not exist on this system, though what the mail system does with matching mail in this instance isn't defined by me.
+
+=head1 SYNOPSIS
+
+vaddaliasdomain <alias domain> <target domain>
+
+=head1 OPTIONS
+
+None.
+
+=head1 EXAMPLES
+
+Add example.net to the system such that all mail for it delivered to the respective user at example.com
+ 
+ vaddaliasdomain example.net example.com
+
+=head1 EXIT STATUS
+
+Exits 0 on success, non-zero on failure. Useful error messages are used as a poor substitute for sensible exit statuses.
+
+=head1 AUTHOR
+
+Avi wrote this.
+
+http://avi.co
+
+http://github.com/BigRedS/vpostmail
+

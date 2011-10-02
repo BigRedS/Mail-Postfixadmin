@@ -59,4 +59,39 @@ Usage:
 EOF
 }
 
+=pod
+
+=head1 NAME
+
+vaddaliasuser - add an alias user to the system
+
+=head1 DESCRIPTION
+
+This is part of Avi's collection of scripts to emulate vpopmail's scripts on a Postfix/MySQL system. 
+Any feature-parity is purely coincidental.
+
+=head1 SYNOPSIS
+
+vaddaliasuser [alias user] [target user] [target user] ...
+
+You may specify as many targets as you like, but any existing ones are overwritten; you should use vuserinfo to get
+a list of the current ones and add those to the list.
+
+=head1 EXAMPLES
+
+Deliver all mail to user@example.net into the mailboxes of user2@example.net and user3@example.net:
+
+ vaddaliasuser user@example.net user2@example.net user3@example.net
+
+=head1 EXIT STATUS
+
+Exits 0 on success, non-zero on failure. Useful error messages are used as a poor substitute for sensible exit statuses.
+
+=head1 AUTHOR
+
+Avi wrote this.
+
+http://avi.co
+
+http://github.com/BigRedS/vpostmail
 
