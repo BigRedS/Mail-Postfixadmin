@@ -6,17 +6,24 @@ use Getopt::Std;
 
 my $user = pop;
 my %opt;
-getopts('hgp', \%opt);
+getopts('hgpv', \%opt);
+
+# h show help
+# g generate password
+# p use supplied password
+# v be verbose (username: and password: labels)
+# b batch mode
 
 
 if ($user eq '' || $user eq '-h' || exists($opt{h})){
         print "Error. I need a user as an argument\n";
+	print &usage;
         exit 1;
 }
 
 
 my $v = Mail::Vpostmail->new(
-	storeCleartextPassword => 1,
+	storeCleartextPassword => 0,
 	);
 $v->setUser($user);
 if (!$v->userExists()){
@@ -37,9 +44,13 @@ while ($password eq ''){
 }
 $v->changePassword($password);
 if($opt{g}){
-	print "Password: $password\n";
+	unless ($opt{v}){
+		print "$password\n";
+	}
 }
-
+if ($opt{v}){
+	print "Username: $user\nPassword: $password\n\n";
+}
 
 
 sub getPassword(){
@@ -62,3 +73,25 @@ sub getPassword(){
 		return;
 	}
 };
+
+sub usage{
+
+return <<EOF;
+
+vpasswd
+
+(re)sets the password of a user on the mail system.
+
+Usage:
+
+ vpasswd [options] [user]
+
+Options:
+
+  -h             show this help
+  -g             generate a password, print to terminal
+  -p [password]  reset to [password], don't prompt
+
+EOF
+
+}
