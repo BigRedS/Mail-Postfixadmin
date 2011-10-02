@@ -1073,20 +1073,26 @@ sub createAliasDomain {
 	}
 	my $fields = "$self->{fields}->{alias_domain}->{alias_domain}, $self->{fields}->{alias_domain}->{target_domain}";
 	my $values = " '$self->{_domain}', '$opts{target}'";
+
+
+	$fields.=", $self->{fields}->{alias_domain}->{created}";
 	if(exists($opts{'created'})){
-		$fields.=", $self->{fields}->{alias_domain}->{created}";
-		$values=", '$opts{'created'}'";
+		$values.=", '$opts{'created'}'";
+	}else{
+		$values.=", ".$self->_mysqlNow;
 	}
+
+	$fields.=", $self->{fields}->{alias_domain}->{modified}";
 	if(exists($opts{'modified'})){
-		$fields.=", $self->{fields}->{alias_domain}->{modified}";
 		$values.=", $opts{'modified'}";
+	}else{
+		$values.=", ".$self->_mysqlNow;
 	}
 	if(exists($opts{'active'})){
 		$fields.=", $self->{fields}->{alias_domain}->{active}";
 		$values.=", '$opts{'active'}'";
 	}
 	my $query = "insert into $self->{tables}->{alias_domain} ( $fields ) values ( $values )";
-#	my $self->
 	my $sth = $self->{dbi}->prepare($query);
 	$sth->execute;
 	if($self->domainExists()){
@@ -1172,14 +1178,21 @@ sub createAliasUser {
 	my $fields = "$self->{fields}->{alias}->{address}, $self->{fields}->{alias}->{goto}, $self->{fields}->{alias}->{domain}";
 	my $values = "\'$opts{alias}\', \'$opts{scalarTarget}\', \'$opts{domain}\'";
 	
+	$fields.=", $self->{fields}->{alias_domain}->{created}";
 	if(exists($opts{'created'})){
-		$fields.=", $self->{fields}->{alias_domain}->{created}";
-		$values=", '$opts{'created'}'";
+		$values.=", '$opts{'created'}'";
+	}else{
+		$values.=", ".$self->_mysqlNow;
 	}
+
+
+	$fields.=", $self->{fields}->{alias_domain}->{modified}";
 	if(exists($opts{'modified'})){
-		$fields.=", $self->{fields}->{alias_domain}->{modified}";
 		$values.=", $opts{'modified'}";
+	}else{
+		$values.=", ".$self->_mysqlNow;
 	}
+
 	if(exists($opts{'active'})){
 		$fields.=", $self->{fields}->{alias_domain}->{active}";
 		$values.=", '$opts{'active'}'";
