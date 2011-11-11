@@ -1079,14 +1079,14 @@ sub createAliasDomain {
 	if(exists($opts{'created'})){
 		$values.=", '$opts{'created'}'";
 	}else{
-		$values.=", ".$self->_mysqlNow;
+		$values.=", '".$self->_mysqlNow."'";
 	}
 
 	$fields.=", $self->{fields}->{alias_domain}->{modified}";
 	if(exists($opts{'modified'})){
-		$values.=", $opts{'modified'}";
+		$values.=", '$opts{'modified'}'";
 	}else{
-		$values.=", ".$self->_mysqlNow;
+		$values.=", '".$self->_mysqlNow."'";
 	}
 	if(exists($opts{'active'})){
 		$fields.=", $self->{fields}->{alias_domain}->{active}";
