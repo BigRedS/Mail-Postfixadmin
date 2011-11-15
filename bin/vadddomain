@@ -5,7 +5,11 @@ use strict;
 use Getopt::Std;
 my %opt;
 my $domain = pop;
-getopts('h', \%opt);
+getopts('vh', \%opt);
+
+
+my $v = Mail::Vpostmail->new();
+my $version = $v->version;
 
 if(exists($opt{h}) || $domain eq '-h' || $domain eq ''){
         print usage();
@@ -14,24 +18,32 @@ if(exists($opt{h}) || $domain eq '-h' || $domain eq ''){
 
 
 if ($domain eq ''){
-	print usage();
+	print usage("Domain is null");
 	exit 1;
 }
 
-my $v = Mail::Vpostmail->new();
 $v->setDomain($domain);
 if($v->domainExists()){
 	print STDERR "Domain $domain already configured\n";
 	exit 1;
 }
-$v->createDomain();
+if($v->createDomain()){
+	print $domain if(exists($opt{v}));
+}else{
+	print "Unknown Error creating domain $domain: $@";
+}
 
 exit;
 
 sub usage{
+	my $message = shift;
+	my $return = "vdeldomain version $version";
+	if($message){
+		$return.="\n\nERROR: $message";
+	}
 
 return <<EOF;
-vadddomain
+$return
 
 Adds a domain to the mail system. 
 
@@ -58,7 +70,10 @@ Any feature-parity is purely coincidental.
 
 =head1 SYNOPSIS
 
-vadddomain domain name
+vadddomain [options] domain name
+
+Options:
+   -v    be verbose; print the name of the domain name when it's created.
 
 =head1 EXAMPLES
 
