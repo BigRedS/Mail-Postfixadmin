@@ -3,13 +3,13 @@
 use strict;
 use Mail::Vpostmail;
 use Getopt::Std;
-
 my $v = Mail::Vpostmail->new();
 
 my $user = shift;
 my @targets = @ARGV;
 
-if ($#targets < 1){
+if ($targets[0] !~ /.+/){
+	print STDERR "I need at least two arguments";
 	print STDERR usage();
 	exit(1);
 }
