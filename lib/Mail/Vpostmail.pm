@@ -11,7 +11,7 @@ use Carp;
 #use Data::Dumper;
 
 our $VERSION;
-$VERSION = 0.0.20111115;
+$VERSION = "0.0.20111115";
 
 ##Todo: detect & support different password hashes
 
@@ -1333,7 +1333,10 @@ sub removeAliasUser{
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
  # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-
+sub version{
+	my $self = shift;
+	return $VERSION
+}
 # dbConnection
 # Deduces db details, returns an array of arguments to a 
 # $dbi->connect()
