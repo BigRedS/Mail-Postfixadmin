@@ -4,7 +4,7 @@ lib/Mail
 lib/Mail/Vpostmail.pm
 Makefile.PL
 MANIFEST
-bin/
+bin
 bin/vaddaliasuser
 bin/vuserinfo
 bin/vpasswd
@@ -14,7 +14,6 @@ bin/vadduser
 bin/vdeldomain
 bin/vadddomain
 bin/vaddaliasdomain
-Makefile.old
 t
 t/Mail-Vpostmail.t
 README
