@@ -10,8 +10,8 @@ use Crypt::PasswdMD5;	# libcrypt-passwdmd5-perl
 use Carp;
 #use Data::Dumper;
 
-my $VERSION;
-$VERSION = 0.0.20110918;
+our $VERSION;
+$VERSION = 0.0.20111115;
 
 ##Todo: detect & support different password hashes
 
@@ -100,12 +100,12 @@ sub new() {
 	my $class = shift;
 	my %params = @_;
 	my $self = {};
-
 	foreach(keys(%params)){
 		$self->{_params}->{$_} = $params{$_};
 	}
 	$self->{errstr};
 	$self->{infostr};
+	$self->{version} = $VERSION;
 	my %_tables = &_tables;
 	$self->{tables} = \%_tables;
 	my %_fields = &_fields;
@@ -1182,7 +1182,7 @@ sub createAliasUser {
 	if(exists($opts{'created'})){
 		$values.=", '$opts{'created'}'";
 	}else{
-		$values.=", ".$self->_mysqlNow;
+		$values.=", '".$self->_mysqlNow."'";
 	}
 
 
@@ -1190,7 +1190,7 @@ sub createAliasUser {
 	if(exists($opts{'modified'})){
 		$values.=", $opts{'modified'}";
 	}else{
-		$values.=", ".$self->_mysqlNow;
+		$values.=",  '".$self->_mysqlNow."'";
 	}
 
 	if(exists($opts{'active'})){
