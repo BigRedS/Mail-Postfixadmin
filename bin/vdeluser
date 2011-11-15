@@ -50,6 +50,8 @@ Cannot delete mailboxes, though.
 EOF
 }
 
+=pod
+
 =head1 NAME
 
 vdeluser - delete a user from the mail system
