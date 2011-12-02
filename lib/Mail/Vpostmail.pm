@@ -494,13 +494,13 @@ sub getAliasDomainTarget(){
 	unless ($self->domainIsAlias){
 		Carp::croak "Domain $self->{_domain} is not an alias domain";
 	}
-	my $query = "select $self->{fields}->{alias_domain}->{target_domain} from $self->{tables}->{alias_domain} where $self->{fields}->{alias_domain}->{alias_domain} = '$domain'";
-	my $sth = $self->{dbi}->prepare($query);
-	$self->{infostr} = $query;
-	$sth->execute();
-	my @targets;
-	my $target = ($sth->fetchrow_array())[0];
-	return($target);
+	my @output = $self->_dbSelect(
+		table  => 'alias_domain',
+		fields => [ 'target_domain' ],
+		equals => [ 'alias_domain', $domain ],
+	);
+	my %result = %{$output[0]};
+	return $result{'target_domain'};
 }
 		
 
@@ -1478,7 +1478,7 @@ sub _fields(){
 }
 
 # Hopefully, a generic sub to pawn all db lookups off onto
-#  _getList(
+#  _dbSelect(
 #       table     => 'table',
 #       fields    => [ field1, field2, field2],
 #	equals	  => ["field", "What it equals"],
@@ -1508,7 +1508,6 @@ sub _dbSelect {
 		$field = $self->{fields}->{$table}->{$field};
 		$query .= " where $field like '$value'";
 	}
-	print "$query\n";
 	my $dbi = $self->{'dbi'};
 	my $sth = $self->{dbi}->prepare($query);
 	$sth->bind_columns(@fields);
