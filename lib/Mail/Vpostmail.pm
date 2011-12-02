@@ -8,7 +8,7 @@ use 5.010;
 use DBI;		# libdbi-perl
 use Crypt::PasswdMD5;	# libcrypt-passwdmd5-perl
 use Carp;
-#use Data::Dumper;
+use Data::Dumper;
 
 our $VERSION;
 $VERSION = "0.0.20111115";
@@ -358,18 +358,16 @@ sub listDomains(){
 	my $self = shift;
 	my $regex = shift;
 	my $regexOpts = shift;
-	my $query;
-	my $query = "select domain from $self->{tables}->{domain}";
-	my $sth = $self->{dbi}->prepare($query);
-	$sth->execute;
-	my @domains;
-	while(my @row = $sth->fetchrow_array()){
-		if ($row[0] =~ /$regex/){
-			push(@domains, $row[0]) unless $row[0] =~ /^ALL$/;
-		}
+	my @results;
+	@results = $self->_dbSelect(
+		table => 'domain',
+		fields => [ "domain" ],
+	);
+	my @return;
+	foreach(@results){
+		push(@return, $_->{domain});
 	}
-	$self->{infostr} = $query;
-	return @domains;
+	return(@return);
 }
 
 
@@ -1474,6 +1472,40 @@ sub _fields(){
 				'active'	=> 'active'
 	};
 	return %fields;
+}
+
+# Hopefully, a generic sub to pawn all db lookups off onto
+#  _getList(
+#       table     => 'table',
+#       fields    => [ field1, field2, field2],
+#       condition => field1 like "%something"
+#       orderby   => 'field4 desc'
+#  }
+# Returns an array of hashes, each hash representing a row from
+# the db with keys as field names.
+sub _dbSelect {
+	my $self = shift;
+	my %opts = @_;
+	my $table = $opts{'table'};
+	my @return;
+	my @fields;
+	foreach my $field (@{$opts{'fields'}}){
+		push (@fields, $self->{fields}->{$table}->{$field});
+	}
+
+	my $query = "select " .	join(", ", @{$opts{'fields'}})   . " from $opts{'table'} ";
+
+	$query .= " where $opts{'condition'} "  if ($opts{'condition'} =~ /.+/);
+	$query .= " order by $opts{'orderby'} " if ($opts{'orderby'} =~ /.+/); 
+
+	my $dbi = $self->{'dbi'};
+	my $sth = $self->{dbi}->prepare($query);
+	$sth->bind_columns(@fields);
+	$sth->execute();
+	while(my $row = $sth->fetchrow_hashref){
+		push(@return, $row);
+	}
+	return @return;
 }
 
 # Returns a timestamp of its time of execution in a format ready for inserting into MySQL
