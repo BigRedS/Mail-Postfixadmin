@@ -384,20 +384,23 @@ sub listUsers(){
 	my $self = shift;
 	my $regex = shift;
 	my $query;
+	my @results;
 	if ($self->{_domain}){
-		$query = "select $self->{fields}->{mailbox}->{username} from $self->{tables}->{mailbox} where $self->{fields}->{mailbox}->{domain} = \'$self->{_domain}\'";
+		@results = $self->_dbSelect(
+			table  => 'mailbox',
+			fields => [ 'username' ],
+			equals => [ 'domain', $self->{_domain}],
+		);
 	}else{
-		$query = "select $self->{fields}->{mailbox}->{username} from $self->{tables}->{mailbox}";
+		@results = $self->_dbSelect(
+			table  => 'mailbox',
+			fields => [ 'username' ],
+		);
 	}
-	my $sth = $self->{dbi}->prepare($query);
-	$sth->execute;
 	my @users;
-	while(my @row = $sth->fetchrow_array()){
-		if($row[0] =~ /$regex/){
-			push(@users, $row[0]);
-		}
+	foreach(@results){
+		push (@users, $_->{username});
 	}
-	$self->{infostr} = $query;
 	return @users;
 }
 
@@ -1478,7 +1481,8 @@ sub _fields(){
 #  _getList(
 #       table     => 'table',
 #       fields    => [ field1, field2, field2],
-#       condition => field1 like "%something"
+#	equals	  => ["field", "What it equals"],
+#	like      => ["field", "what it's like"],
 #       orderby   => 'field4 desc'
 #  }
 # Returns an array of hashes, each hash representing a row from
@@ -1495,9 +1499,16 @@ sub _dbSelect {
 
 	my $query = "select " .	join(", ", @{$opts{'fields'}})   . " from $opts{'table'} ";
 
-	$query .= " where $opts{'condition'} "  if ($opts{'condition'} =~ /.+/);
-	$query .= " order by $opts{'orderby'} " if ($opts{'orderby'} =~ /.+/); 
-
+	if ($opts{'equals'} > 0){
+		my ($field,$value) = @{$opts{'equals'}};
+		$field = $self->{fields}->{$table}->{$field};
+		$query .= " where $field = '$value' ";
+	}elsif ($opts{'like'} > 0){
+		my ($field,$value) = @{$opts{'equals'}};
+		$field = $self->{fields}->{$table}->{$field};
+		$query .= " where $field like '$value'";
+	}
+	print "$query\n";
 	my $dbi = $self->{'dbi'};
 	my $sth = $self->{dbi}->prepare($query);
 	$sth->bind_columns(@fields);
