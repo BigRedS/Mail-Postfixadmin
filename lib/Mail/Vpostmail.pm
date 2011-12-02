@@ -103,8 +103,6 @@ sub new() {
 	foreach(keys(%params)){
 		$self->{_params}->{$_} = $params{$_};
 	}
-	$self->{errstr};
-	$self->{infostr};
 	$self->{version} = $VERSION;
 	my %_tables = &_tables;
 	$self->{tables} = \%_tables;
@@ -137,29 +135,12 @@ sub new() {
 	}
 
 	$self->{storeCleartextPassword} = $self->{_params}->{storeCleartextPassword} || 0;
-#	if ($self->{storeCleartextPassword} > 0){
-#		unless(dbCanStoreCleartextPasswords() > 0){
-#			Carp::croak "missing db support for cleartext passwords; no column named $self->{fields}->{mailbox}->{password_cleartext} on table $self->{tables}->{mailbox}";
-#		}else{
-#			print "We can do cleartext. Whoo";
-#		}
-#	}	
 	my @postconf;
 	eval{
 		@postconf = qx/postconf/ or die "$!";
 	};
-#		if($@){
-#			$self->{mail_location} = $!;
-#		}else{
-#		print "==\n";
-#		$self->{_mailLocation} = (split(/\s*=\s*/, (reverse(grep(/^\s+mail_location/, qx/$self->{_doveconf}/)))[0]))[1];
 		$self->{mailLocation} = (reverse(grep(/\s*mail_location/, qx/$self->{_doveconf}/)))[0];
 		chomp $self->{mailLocation};
-#		$self->{mailLocation} =~ s/^[^=]=\s*//;
-
-#		print $self->{_mailLocation}."\n";
-#		print "==\n";
-#		$self->{mail_location} = (split(/\s*=\s*/, $mail_location))[1];
 #	}
 	bless($self,$class);
 	return $self;
@@ -1310,7 +1291,6 @@ sub removeAliasDomain{
 		return 3;
 	}
 	my $query = "delete from $self->{tables}->{alias_domain} where $self->{fields}->{alias_domain}->{alias_domain} = '$domain'";
-#	print $query;
 	my $sth = $self->{dbi}->prepare($query);
 	$sth->execute;
 }
