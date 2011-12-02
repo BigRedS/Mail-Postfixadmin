@@ -7,14 +7,14 @@ my $domain = shift;
 my $target = shift;
 
 
+my $v = Mail::Vpostmail->new();
+my $version = $v->version;
 if ($target eq ''){
-	print "Error. I need some arguments\n";
-	print usage();
+	print usage("I need some arguments");
 	exit 1;
 }
 
 
-my $v = Mail::Vpostmail->new();
 $v->setDomain($domain);
 if($v->domainExists()){
 	print "Error: Domain $domain already exists\n";
@@ -33,8 +33,11 @@ if($v->domainIsAlias){
 }
 
 sub usage{
+	my $message = shift;
+	my $version = "vaddaliasdomain version $version";
+	my $return = $version."\n\nError: $message\n";
 return <<EOF;
-
+$return
 Usage:
   vaddaliasdomain [alias] [target]
 
