@@ -664,23 +664,12 @@ sub getUserInfo(){
 		Carp::croak "No user set";
 	}
 	my %userinfo;
-	my $query = "select * from `$self->{tables}->{mailbox}` where $self->{fields}->{mailbox}->{username} = '$user'";
-	my $userinfo = $self->{dbi}->selectrow_hashref($query);
-	# we want to return a hash using the names of the fields we use internally
-	# in pursuit of consistency of output, but we'll be given them as named
-	# in the db here. We do, however, have a hash defining these. Here, we create
-	# a new hash, effectively renaming the keys in the hash returned by DBI with 
-	# those found by looking up in the $self->{fields}->{mailbox} 
-	my %return;
-	my %mailboxHash = %{$self->{fields}->{mailbox}};
-	my ($k,$v);
-	while( ($k,$v) = each( %{$self->{fields}->{mailbox}})){
-		my $myname = $k;
-		my $theirname = $v;
-		my $info = $$userinfo{$theirname};
-		$return{$myname} = $info;
-	}
-	$self->{infostr} = $query;
+	my @results = $self->_dbSelect(
+		table  => 'mailbox',
+		fields => ['*'],
+		equals => ['username', $user]
+	);
+	my %return = %{$results[0]};
 	return %return;
 }
 
