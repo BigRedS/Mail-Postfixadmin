@@ -749,18 +749,19 @@ sub getTargetAliases{
 	my $self = shift;
 	my $domain = $self->{_domain};
 	if ($domain eq ''){ Carp::croak "No domain set"; }
-	my $query = "select $self->{fields}->{alias_domain}->{alias_domain} from $self->{tables}->{alias_domain} where $self->{fields}->{alias_domain}->{target_domain} = '$domain'";
-	my $sth = $self->{dbi}->prepare($query);
-	$sth->execute;
+	my @results = $self->_dbSelect(
+		table  => "alias_domain",
+		fields => ["alias_domain"],
+		equals => ['target_domain', $domain],
+	);
+
+
 	my @aliases;
-	while(my @row = $sth->fetchrow_array){
-		push(@aliases, $row[0]);
+	foreach my $r (@results){
+		my %row = %{$r};
+		push (@aliases, $row{'alias_domain'});
 	}
-	if ($#aliases > 0){
-		return @aliases;
-	}else{
-		return;
-	}
+	return @aliases;
 }
 
 
@@ -1476,15 +1477,27 @@ sub _fields(){
 #  }
 # Returns an array of hashes, each hash representing a row from
 # the db with keys as field names.
+## Todo: Error on non-existant table & field names
 sub _dbSelect {
 	my $self = shift;
 	my %opts = @_;
 	my $table = $opts{'table'};
 	my @return;
 	my @fields;
+
+	if(exists($self->{'tables'}->{$table})){
+		$table = $self->{'tables'}->{$table};
+	}else{
+		Carp::croak "Table '$table' not defined in %_tables";
+	}
+
 	foreach my $field (@{$opts{'fields'}}){
+		unless(exists($self->{fields}->{$table}->{$field})){
+			Carp::croak "Field $self->{fields}->{$table}->{$field} in table $table not defined in %_fields";
+		}
 		push (@fields, $self->{fields}->{$table}->{$field});
 	}
+
 
 	my $query = "select " .	join(", ", @{$opts{'fields'}})   . " from $opts{'table'} ";
 
