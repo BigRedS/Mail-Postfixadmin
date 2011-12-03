@@ -1499,7 +1499,6 @@ sub _dbSelect {
 	}
 	my $dbi = $self->{'dbi'};
 	my $sth = $self->{dbi}->prepare($query);
-	$sth->bind_columns(@fields);
 	$sth->execute();
 	while(my $row = $sth->fetchrow_hashref){
 		push(@return, $row);
