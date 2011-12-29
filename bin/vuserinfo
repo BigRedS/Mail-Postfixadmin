@@ -1,10 +1,10 @@
 #! /usr/bin/perl
 
 use strict;
-use Mail::Vpostmail;
+use Mail::Postfixadmin;
 
 
-my $v = Mail::Vpostmail->new();
+my $v = Mail::Postfixadmin->new();
 my $user = $ARGV[0];
 if ($user eq ''){
 	print "Error: I need a user\n";

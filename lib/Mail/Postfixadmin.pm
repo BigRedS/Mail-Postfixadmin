@@ -1,7 +1,7 @@
 #! /usr/bin/perl
 
 
-package Mail::Vpostmail;
+package Mail::Postfixadmin;
 
 use strict;
 use 5.010;
@@ -11,7 +11,7 @@ use Carp;
 use Data::Dumper;
 
 our $VERSION;
-$VERSION = "0.0.20111115";
+$VERSION = "0.0.20111229";
 
 ##Todo: detect & support different password hashes
 
@@ -19,12 +19,12 @@ $VERSION = "0.0.20111115";
 
 =head1 NAME
 
-Mail::Vpostmail - Interferes with a Postfix/MySQL virtual mailbox system
+Mail::Postfixadmin - Interferes with a Postfix/MySQL virtual mailbox system
 
 =head1 SYNOPSIS
 
 
-Vpostmail is an attempt to provide a bunch of neat functions that wrap around the tedious SQL involved
+Mail::Postfixadmin is an attempt to provide a bunch of neat functions that wrap around the tedious SQL involved
 in interfering with a Postfix/Dovecot/MySQL virtual mailbox mail system. It can probably be used on others
 so long as the DB schema is similar enough.
 
@@ -34,9 +34,9 @@ as it is documentation of the module.
 This is also completely not an object-orientated interface to the Postfix/Dovecot mailer, since it doesn't actually
 represent anything sensibly as objects. At best, it's an object-considering means of configuring it.
 
-        use Vpostmail;
+        use Mail::Postfixadmin;
 
-	my $v = Vpostmail->new();
+	my $v = Mail::Postfixadmin->new();
 	$v->setDomain("example.org");
 	$vdescription => 'an example',
 		num_mailboxes => '0'
@@ -59,10 +59,10 @@ represent anything sensibly as objects. At best, it's an object-considering mean
 
 =head3 new()
 
-Creates and returns a new Vpostmail object. You want to provide some way of determining how to connect
+Creates and returns a new Mail::Postfixadmin object. You want to provide some way of determining how to connect
 to the database. There are two ways:
 
- my $v = Vpostmail->new(
+ my $v = Mail::Postfixadmin->new(
          dbi	=> 'DBI:mysql:dbname',
 	 dbuser	=> 'username',
 	 dbpass => 'password'
@@ -71,7 +71,7 @@ to the database. There are two ways:
 Which essentially is the three arguments to a DBI->connect. Alternatively, you can pass the location
 of postfix's C<main.cf> file:
 
- my $v = Vpostmail->new(
+ my $v = Mail::Postfixadmin->new(
  	 maincf	=> '/etc/postfix/main.cf'
  )
 
@@ -86,7 +86,7 @@ forward-slash ('C</>').
 You may also instruct the object to store plain text passwords by setting 'storeClearTextPassword' to
 a value greater than 0:
 
-my $v = Vpostmail->new(
+my $v = Mail::Postfixadmin->new(
         storeCleartextPassword => 1, 
 ); 
 
@@ -565,11 +565,13 @@ sub userIsTarget{
 	my $self = shift;
 	my $user = $self->{_user};
 	if ($user eq ''){ Carp::croak "No user set";}
-	my $query = "select count(*) $self->{tables}->{alias} where $self->{fields}->{alias}->{target} like '%$user%";
-	my $sth = $self->{dbi}->prepare($query);
-	$sth->execute;
-	my $count = ($sth->fetchrow_array())[0];
-	$self->{infostr} = $query;
+	my @results = $self->_dbSelect(
+		count => 'true',
+		like  => ['goto', "%$user%"],
+		table => 'alias'
+	);
+	my %row = %{$results[0]};
+	my $count = $row{'count(*)'};
 	if ($count > 0){
 		return $count;
 	}else{
@@ -1474,10 +1476,11 @@ sub _fields(){
 #	equals	  => ["field", "What it equals"],
 #	like      => ["field", "what it's like"],
 #       orderby   => 'field4 desc'
+#	count     => something
 #  }
+# If count *exists*, a count is returned. If not, it isn't.
 # Returns an array of hashes, each hash representing a row from
 # the db with keys as field names.
-## Todo: Error on non-existant table & field names
 sub _dbSelect {
 	my $self = shift;
 	my %opts = @_;
@@ -1498,21 +1501,34 @@ sub _dbSelect {
 		push (@fields, $self->{fields}->{$table}->{$field});
 	}
 
-
-	my $query = "select " .	join(", ", @{$opts{'fields'}})   . " from $opts{'table'} ";
-
+	my $query = "select ";
+	if (exists($opts{count})){
+		$query .= "count(*) ";
+	}else{
+		$query .= join(", ", @fields);
+	}
+	$query .= " from $table ";
 	if ($opts{'equals'} > 0){
 		my ($field,$value) = @{$opts{'equals'}};
-		$field = $self->{fields}->{$table}->{$field};
+		if (exists($self->{fields}->{$table}->{$field})){
+			$field = $self->{fields}->{$table}->{$field};
+		}else{
+			Carp::croak "Field $field in table $table (used in SQL conditional) not defined";
+		}
 		$query .= " where $field = '$value' ";
 	}elsif ($opts{'like'} > 0){
-		my ($field,$value) = @{$opts{'equals'}};
+		my ($field,$value) = @{$opts{'like'}};
+		if (exists($self->{fields}->{$table}->{$field})){
+			$field = $self->{fields}->{$table}->{$field};
+		}else{
+			Carp::croak "Field $field in table $table (used in SQL conditional) not defined";
+		}
 		$field = $self->{fields}->{$table}->{$field};
 		$query .= " where $field like '$value'";
 	}
 	my $dbi = $self->{'dbi'};
 	my $sth = $self->{dbi}->prepare($query);
-	$sth->execute();
+	$sth->execute() or Carp::croak "execute failed: $!";
 	while(my $row = $sth->fetchrow_hashref){
 		push(@return, $row);
 	}

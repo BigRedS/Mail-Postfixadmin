@@ -1,7 +1,7 @@
 #! /usr/bin/perl
 
 use strict;
-use Mail::Vpostmail;
+use Mail::Postfixadmin;
 use Getopt::Std;
 
 my $user = pop;
@@ -22,7 +22,7 @@ if ($user eq '' || $user eq '-h' || exists($opt{h})){
 }
 
 
-my $v = Mail::Vpostmail->new(
+my $v = Mail::Postfixadmin->new(
 	storeCleartextPassword => 0,
 	);
 $v->setUser($user);

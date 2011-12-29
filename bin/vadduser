@@ -1,6 +1,6 @@
 #! /usr/bin/perl
 
-use Mail::Vpostmail;
+use Mail::Postfixadmin;
 use strict;
 use Getopt::Std;
 use Data::Dumper;
@@ -24,7 +24,7 @@ if ($user eq ''){
         exit 1;
 }
 
-my $v = Mail::Vpostmail->new();
+my $v = Mail::Postfixadmin->new();
 $v->setUser($user);
 if($v->userExists()){
         print "Error: User $user already exists\n";
@@ -32,7 +32,7 @@ if($v->userExists()){
 }
 
 my $domain;
-if ($user =~ /@(.+)$/){
+if ($user =~ /\@(.+)$/){
 	$domain = $1;
 	$v->setDomain($domain);
 	if ($v->domainIsAlias){
@@ -51,7 +51,7 @@ if ($user =~ /@(.+)$/){
 		exit(1) unless(exists($opt{f}))
 	}
 }else{
-	print STDERR "$domain doesn't look like a complete email address. Use -f to proceed anyway\n";
+	print STDERR "user '$user' doesn't look like a complete email address. Use -f to proceed anyway\n";
 	exit(1) unless(exists($opt{f}));
 }
 

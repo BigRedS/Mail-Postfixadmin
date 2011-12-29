@@ -1,9 +1,9 @@
 #! /usr/bin/perl
 
 use strict;
-use Mail::Vpostmail;
+use Mail::Postfixadmin;
 use Getopt::Std;
-my $v = Mail::Vpostmail->new();
+my $v = Mail::Postfixadmin->new();
 
 my $user = shift;
 my @targets = @ARGV;
@@ -14,7 +14,7 @@ if ($targets[0] !~ /.+/){
 	exit(1);
 }
 
-my $v = Mail::Vpostmail->new();
+my $v = Mail::Postfixadmin->new();
 
 $v->setUser($user);
 if($v->userExists()){

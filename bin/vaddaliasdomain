@@ -1,13 +1,13 @@
 #! /usr/bin/perl
 
-use Mail::Vpostmail;
+use Mail::Postfixadmin;
 use strict;
 
 my $domain = shift;
 my $target = shift;
 
 
-my $v = Mail::Vpostmail->new();
+my $v = Mail::Postfixadmin->new();
 my $version = $v->version;
 if ($target eq ''){
 	print usage("I need some arguments");

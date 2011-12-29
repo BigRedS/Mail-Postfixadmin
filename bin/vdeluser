@@ -1,6 +1,6 @@
 #! /usr/bin/perl
 
-use Mail::Vpostmail;
+use Mail::Postfixadmin;
 use strict;
 use Getopt::Std;
 
@@ -15,7 +15,7 @@ if ($user eq '' || $user eq '-h' || exists($opt{h})){
 
 print "Handy warning: I can't even find mailboxes yet, let alone delete them :)\n";
 
-my $v = Mail::Vpostmail->new();
+my $v = Mail::Postfixadmin->new();
 
 $v->setUser($user);
 if ($v->userExists){

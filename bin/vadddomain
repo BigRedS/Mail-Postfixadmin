@@ -1,6 +1,6 @@
 #! /usr/bin/perl
 
-use Mail::Vpostmail;
+use Mail::Postfixadmin;
 use strict;
 use Getopt::Std;
 my %opt;
@@ -8,7 +8,7 @@ my $domain = pop;
 getopts('vh', \%opt);
 
 
-my $v = Mail::Vpostmail->new();
+my $v = Mail::Postfixadmin->new();
 my $version = $v->version;
 
 if(exists($opt{h}) || $domain eq '-h' || $domain eq ''){

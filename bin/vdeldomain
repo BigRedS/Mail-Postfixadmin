@@ -1,6 +1,6 @@
 #! /usr/bin/perl
 
-use Mail::Vpostmail;
+use Mail::Postfixadmin;
 use strict;
 use Getopt::Std;
 my %opt;
@@ -17,7 +17,7 @@ if ($domain eq '' || $domain eq '-h' || exists($opt{h})){
 	exit 1;
 }
 
-my $v = Mail::Vpostmail->new();
+my $v = Mail::Postfixadmin->new();
 
 $v->setDomain($domain);
 
