@@ -19,7 +19,7 @@ if ($user !~ /\@/){
 	if ($v->domainIsAlias){
 		$v->setDomain($v->getAliasDomainTarget);
 	}
-	foreach($v->listUsers){
+	foreach($v->getUsers){
 		print "$_\n";
 	}
 	exit 0;

@@ -34,7 +34,7 @@ if ($v->domainExists){
 		$v->setDomain($v->getAliasDomainTarget);
 	}
 	if(exists($opt{l})){
-		foreach($v->listUsers){
+		foreach($v->getUsers){
 			print $_."\n";
 		}
 	}else{

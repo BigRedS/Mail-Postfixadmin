@@ -26,7 +26,7 @@ if ($v->domainExists){
 		$v->removeAliasDomain;
 	}else{
 		unless(exists($opt{U})){
-			foreach($v->listUsers){
+			foreach($v->getUsers){
 				print "removing $_ ";
 				$v->setUser($_);
 				if($v->removeUser){
