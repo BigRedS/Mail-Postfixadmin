@@ -13,8 +13,6 @@ use Data::Dumper;
 our $VERSION;
 $VERSION = "0.0.20111229";
 
-##Todo: detect & support different password hashes
-
 =pod
 
 =head1 NAME
@@ -76,22 +74,24 @@ of postfix's C<main.cf> file:
  )
 
 In which case the file passed as an argument is parsed for a line specifying a file containing MySQL 
-configuration, which is then itself parsed to get the connection info. This is still somewhat crap and
+configuration, which is then itself parsed to get the connection info. This is still somewhat crude and
 should be made more robust and flexible.
 
 If C<main.cf> is passed the C<dbi>, C<dbuser> and C<dbpass> values are ignored and overwritten by 
 data found in the files. C<main.cf> is deemed to have been 'passed' if its value contains a 
 forward-slash ('C</>').
 
-You may also instruct the object to store plain text passwords by setting 'storeClearTextPassword' to
-a value greater than 0:
+=cut 
 
-my $v = Mail::Postfixadmin->new(
-        storeCleartextPassword => 1, 
-); 
-
-Currently, there's no checking; the plan is that this will be set automagically based on the presence of
-a field to store the cleartext password in.
+##You may also instruct the object to store plain text passwords by setting 'storeClearTextPassword' to
+#a value greater than 0:
+#
+#my $v = Mail::Postfixadmin->new(
+#        storeCleartextPassword => 1, 
+#); 
+#
+#Currently, there's no checking; the plan is that this will be set automagically based on the presence of
+#a field to store the cleartext password in.
 
 
 =cut
@@ -139,9 +139,8 @@ sub new() {
 	eval{
 		@postconf = qx/postconf/ or die "$!";
 	};
-		$self->{mailLocation} = (reverse(grep(/\s*mail_location/, qx/$self->{_doveconf}/)))[0];
-		chomp $self->{mailLocation};
-#	}
+	$self->{mailLocation} = (reverse(grep(/\s*mail_location/, qx/$self->{_doveconf}/)))[0];
+	chomp $self->{mailLocation};
 	bless($self,$class);
 	return $self;
 }
@@ -292,7 +291,7 @@ sub unsetUser(){
 =head3 getdbCredentials()
 
 Returns a hash of the db Credentials as expected by the constructor. Keys are C<dbi> C<dbuser> and C<dbpass>. 
-These are the three arguments for the DBI constructor; C<dbi> is the fill connection string (including C<DBI:mysql> at the beginning.
+These are the three arguments for the DBI constructor; C<dbi> is the full connection string (including C<DBI:mysql> at the beginning.
 
 =cut
 sub getdbCredentials{
@@ -328,7 +327,7 @@ sub numDomains(){
 =head3 numUsers()
 
 Returns the number of configured users. If a domain is set (with C<setDomain()>) it will only return users configured on that domain. If not, 
-it will return all the users. If you'd like only those that match some pattern, you should use C<listUsers()> and measure the size of the returned
+it will return all the users. If you'd like only those that match some pattern, you should use C<getUsers()> and measure the size of the returned
 list.
 
 =cut
@@ -347,14 +346,14 @@ sub numUsers(){
 	return $numUsers;
 }
 
-=head3 listDomains() 
+=head3 getDomains() 
 
 Returns a list of domains on the system. You may pass a regex as an argument, and only those domains matching that regex are supplied. There's 
 no way of passing options, and the regex is matched case-sensitively - you need to build insensitivity in to the pattern if you want it.
 
 =cut
 
-sub listDomains(){
+sub getDomains(){
 	my $self = shift;
 	my $regex = shift;
 	my $regexOpts = shift;
@@ -371,7 +370,7 @@ sub listDomains(){
 }
 
 
-=head3 listUsers() 
+=head3 getUsers() 
 
 Returns a list of users on the system (or, if it's previously been defined, the domain). 
 
@@ -380,7 +379,7 @@ matched case-sensitively - you need to build insensitivity in to the pattern if 
 
 =cut
 
-sub listUsers(){
+sub getUsers(){
 	my $self = shift;
 	my $regex = shift;
 	my $query;
@@ -481,7 +480,7 @@ sub domainIsAlias(){
 
 =head3 getAliasDomainTarget()
 
-Returns the target of the currently set domain if it's an alias;
+Returns the target of the currently set domain if it's an alias, undef otherwise.
 
 =cut
 
@@ -492,7 +491,7 @@ sub getAliasDomainTarget(){
 		Carp::croak "No domain set";
 	}
 	unless ($self->domainIsAlias){
-		Carp::croak "Domain $self->{_domain} is not an alias domain";
+		return;
 	}
 	my @output = $self->_dbSelect(
 		table  => 'alias_domain',
@@ -507,7 +506,7 @@ sub getAliasDomainTarget(){
 =head3 domainIsTarget()
 
 Checks whether the currently set domain is the target of an alias domain. Returns the amount of 
-aliases that have the set domain as their targets
+aliases that have the set domain as their targets, undef if none are found.
 
 =cut
 
@@ -533,7 +532,7 @@ sub domainIsTarget(){
 
 Checks whether the currently set user is an alias to another address. Returns the number of rows
 in which the user is configured as an alias, *not* the amount of target addresses (see C<getUserTargets> 
-for that)
+for that), undef if it's not an alias.
 
 =cut
 
@@ -556,8 +555,8 @@ sub userIsAlias{
 =head3 userIsTarget()
 
 Checks for the currently set user as a target address. Returns the number of rows in which the user
-is configured as an alias which should be the number of unique addresses, but may not be. Use
-C<getUserAliases()> for a more accurate count.
+is configured as an alias (which should be the number of unique addresses, but may not be. Use
+C<getUserAliases()> for a more accurate count), undef if it's not a target.
 
 =cut
 
@@ -1241,7 +1240,7 @@ sub removeDomain(){
 		$self->{errstr} = "Domain doesn't exist";
 		return 2;
 	}
-	my @users = $self->listUsers();
+	my @users = $self->getUsers();
 	foreach(@users){
 		$self->{_user} = $_;
 		$self->removeUser();
