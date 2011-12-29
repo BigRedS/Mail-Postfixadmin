@@ -94,7 +94,6 @@ forward-slash ('C</>').
 #a field to store the cleartext password in.
 
 
-=cut
 
 sub new() {
 	my $class = shift;
@@ -307,7 +306,7 @@ sub getdbCredentials{
 
 =head3 numDomains()
 
-Returns the number of domains configured on the server. If you'd like only those that match some pattern, you should use C<listDomains()> and measure 
+Returns the number of domains configured on the server. If you'd like only those that match some pattern, you should use C<getDomains()> and measure 
 the size of the returned list.
 
 =cut
@@ -402,6 +401,35 @@ sub getUsers(){
 	}
 	return @users;
 }
+
+=head3 getAliasUsers()
+
+Returns a list of alias users on the system or, if a domain is set, the current 
+domain.
+
+=cut
+
+sub getAliasUsers() {
+	my $self = shift;
+	my @results;
+	if ( $self->{_domain} ){
+		my $domain = $self->{_domain};
+		my $like = '%'.$domain; 
+		@results = $self->_dbSelect(
+			table  => 'alias',
+			fields => ['address'],
+			like   => [ 'goto' , $like ] ,
+		);
+	}else{
+		@results = $self->_dbSelect(
+			table => 'alias',
+			fields => ['address'],
+		);
+	}
+	my @aliases = map ($_->{'address'}, @results);
+	return @aliases;
+}
+
 
 =head3 domainExists() and userExists()
 
