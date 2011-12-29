@@ -380,7 +380,6 @@ matched case-sensitively - you need to build insensitivity in to the pattern if 
 
 sub getUsers(){
 	my $self = shift;
-	my $regex = shift;
 	my $query;
 	my @results;
 	if ($self->{_domain}){
@@ -395,10 +394,7 @@ sub getUsers(){
 			fields => [ 'username' ],
 		);
 	}
-	my @users;
-	foreach(@results){
-		push (@users, $_->{username});
-	}
+	my @users = map ($_->{'username'}, @results);
 	return @users;
 }
 
@@ -430,6 +426,19 @@ sub getAliasUsers() {
 	return @aliases;
 }
 
+=head3 getAllUsers()
+
+
+=cut
+
+#sub getAllUsers{
+#	my $self = shift;
+#	
+#	= $self->getUsers;
+#	my @aliases = $self->getAliasUsers;
+#	my @return = (@users, @aliases);
+#	return @return;
+#}
 
 =head3 domainExists() and userExists()
 
@@ -649,7 +658,8 @@ sub getAliasUserTargetArray{
 
 =head3 getAliasUserTarget()
 
-Returns a string which is a comma-separated list of addresses for which the current user is an alias. 
+Returns a string which is a comma-separated list of addresses for which the 
+current user is an alias. 
 
 =cut
 
