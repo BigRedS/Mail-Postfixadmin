@@ -22,15 +22,17 @@ Mail::Postfixadmin - Interferes with a Postfix/MySQL virtual mailbox system
 =head1 SYNOPSIS
 
 
-Mail::Postfixadmin is an attempt to provide a bunch of neat functions that wrap around the tedious SQL involved
-in interfering with a Postfix/Dovecot/MySQL virtual mailbox mail system. It can probably be used on others
-so long as the DB schema is similar enough.
+Mail::Postfixadmin is an attempt to provide a bunch of neat functions that wrap
+around the tedious SQL involved in interfering with a Postfix/Dovecot/MySQL 
+virtual mailbox mail system. It can probably be used on others so long as the 
+DB schema is similar enough.
 
-It's _very_much_ still in development. All sorts of things will change :) This is currently a todo list as much
-as it is documentation of the module.
+It's _very_much_ still in development. All sorts of things will change :) This 
+is currently a todo list as much as it is documentation of the module.
 
-This is also completely not an object-orientated interface to the Postfix/Dovecot mailer, since it doesn't actually
-represent anything sensibly as objects. At best, it's an object-considering means of configuring it.
+This is also completely not an object-orientated interface to the 
+Postfix/Dovecot mailer, since it doesn't actually represent anything sensibly 
+as objects. At best, it's an object-considering means of configuring it.
 
         use Mail::Postfixadmin;
 
@@ -57,8 +59,8 @@ represent anything sensibly as objects. At best, it's an object-considering mean
 
 =head3 new()
 
-Creates and returns a new Mail::Postfixadmin object. You want to provide some way of determining how to connect
-to the database. There are two ways:
+Creates and returns a new Mail::Postfixadmin object. You want to provide some 
+way of determining how to connect to the database. There are two ways:
 
  my $v = Mail::Postfixadmin->new(
          dbi	=> 'DBI:mysql:dbname',
@@ -66,32 +68,33 @@ to the database. There are two ways:
 	 dbpass => 'password'
  )
 
-Which essentially is the three arguments to a DBI->connect. Alternatively, you can pass the location
-of postfix's C<main.cf> file:
+Which essentially is the three arguments to a DBI->connect. Alternatively, you 
+can pass the location of postfix's C<main.cf> file:
 
  my $v = Mail::Postfixadmin->new(
  	 maincf	=> '/etc/postfix/main.cf'
  )
 
-In which case the file passed as an argument is parsed for a line specifying a file containing MySQL 
-configuration, which is then itself parsed to get the connection info. This is still somewhat crude and
-should be made more robust and flexible.
+In which case the file passed as an argument is parsed for a line specifying a 
+file containing MySQL configuration, which is then itself parsed to get the 
+connection info. This is still somewhat crude and should be made more robust 
+and flexible.
 
-If C<main.cf> is passed the C<dbi>, C<dbuser> and C<dbpass> values are ignored and overwritten by 
-data found in the files. C<main.cf> is deemed to have been 'passed' if its value contains a 
-forward-slash ('C</>').
+If C<main.cf> is passed the C<dbi>, C<dbuser> and C<dbpass> values are ignored 
+and overwritten by data found in the files. C<main.cf> is deemed to have been 
+'passed' if its value contains a forward-slash ('C</>').
 
 =cut 
 
-##You may also instruct the object to store plain text passwords by setting 'storeClearTextPassword' to
-#a value greater than 0:
+##You may also instruct the object to store plain text passwords by setting 
+###'storeClearTextPassword' to a value greater than 0:
 #
 #my $v = Mail::Postfixadmin->new(
 #        storeCleartextPassword => 1, 
 #); 
 #
-#Currently, there's no checking; the plan is that this will be set automagically based on the presence of
-#a field to store the cleartext password in.
+#Currently, there's no checking; the plan is that this will be set automagically 
+#based on the presence of a field to store the cleartext password in.
 
 
 
@@ -180,25 +183,27 @@ sub setFields(){
 
 =head2 Getters and Setters
 
-Anything that operates on a domain or a user will expect the object's user or domain to have already been set with 
-one of these. The getters and setters are
+Anything that operates on a domain or a user will expect the object's user or 
+domain to have already been set with one of these. The getters and setters are
 
  getUser()
  getDomain()
  setUser()
  setDomain()
 
-Functions do not, in general, expect to be passed either a user or a domain as an argument, with 
-C<createDomain()> and C<createUser()> acting as notable examples - if C<createDomain> is called 
-without a domain having been 'set', it will accept a domain set by passing it in its hash. 
-C<createUser> is the same with the user.
+Functions do not, in general, expect to be passed either a user or a domain as 
+an argument, with C<createDomain()> and C<createUser()> acting as notable 
+examples - if C<createDomain> is called without a domain having been 'set', it 
+will accept a domain set by passing it in its hash. C<createUser> is the same 
+with the user.
 
 There is also a pair of 'unsetters':
 
  unsetUser()
  unsetDomain()
 
-The setters will return the value to which they have set the variable; these two are equivalent:
+The setters will return the value to which they have set the variable; these 
+two are equivalent:
 
   $v->setDomain('example.org');
   print $v->getDomain();
@@ -209,19 +214,21 @@ in that both will print 'example.org'.
 
 =head3 setUser()
 
-setUser may either be passed the full username (C<bob@example.org>) or, if a domain is already set with C<setDomain()>, just
-the left-hand-side (C<bob>). These two are equivalent:
+setUser may either be passed the full username (C<bob@example.org>) or, if a 
+domain is already set with C<setDomain()>, just the left-hand-side (C<bob>). 
+These two are equivalent:
 
  $v->setDomain('example.org');
  $v->setUser('bob');
 
  $v->setUser('bob@example.org');
 
-Note that this behaviour depends upon the argument to C<setUser()>, not only the set-ness of a domain. If no domain is 
-set, then the argument to C<setUser> is always assumed to be the whole username.
+Note that this behaviour depends upon the argument to C<setUser()>, not only the 
+set-ness of a domain. If no domain is set, then the argument to C<setUser> is 
+always assumed to be the whole username.
 
-If a domain is set, then the argument is assumed to be a whole email address if it contains a '@', else it's assumed
-to be a left-hand-side only.
+If a domain is set, then the argument is assumed to be a whole email address if
+it contains a '@', else it's assumed to be a left-hand-side only.
 
 
 =cut
@@ -255,8 +262,8 @@ sub setUser(){
 
 =head3 unsetDomain() and unsetUser()
 
-Sets the domain or the user to C<undef>. Returns the previous value of the variable, rather than the new value (which you 
-would get out of the setters):
+Sets the domain or the user to C<undef>. Returns the previous value of the 
+variable, rather than the new value (which you would get out of the setters):
 
   $v->setDomain('example.org')
   print $v->setDomain(undef);
@@ -289,8 +296,10 @@ sub unsetUser(){
 
 =head3 getdbCredentials()
 
-Returns a hash of the db Credentials as expected by the constructor. Keys are C<dbi> C<dbuser> and C<dbpass>. 
-These are the three arguments for the DBI constructor; C<dbi> is the full connection string (including C<DBI:mysql> at the beginning.
+Returns a hash of the db Credentials as expected by the constructor. Keys are 
+C<dbi> C<dbuser> and C<dbpass>. These are the three arguments for the DBI 
+constructor; C<dbi> is the full connection string (including C<DBI:mysql> at 
+the beginning.
 
 =cut
 sub getdbCredentials{
@@ -306,8 +315,9 @@ sub getdbCredentials{
 
 =head3 numDomains()
 
-Returns the number of domains configured on the server. If you'd like only those that match some pattern, you should use C<getDomains()> and measure 
-the size of the returned list.
+Returns the number of domains configured on the server. If you'd like only 
+those that match some pattern, you should use C<getDomains()> and measure the 
+size of the returned list.
 
 =cut
 
@@ -325,18 +335,18 @@ sub numDomains(){
 
 =head3 numUsers()
 
-Returns the number of configured users. If a domain is set (with C<setDomain()>) it will only return users configured on that domain. If not, 
-it will return all the users. If you'd like only those that match some pattern, you should use C<getUsers()> and measure the size of the returned
-list.
+Returns the number of configured users. If a domain is passed it will only 
+return users configured on that domain. If not, it will return a count of all 
+users on the system
 
 =cut
 
 sub numUsers(){
 	my $self = shift;
 	my $query;
-	my $domain = $self->{_domain};
+	my $domain = shift;
 	if ($domain){
-		$query = "select count(*) from `$self->{tables}->{mailbox}` where $self->{fields}->{mailbox}->{domain} = \'$self->{_domain}\'"
+		$query = "select count(*) from `$self->{tables}->{mailbox}` where $self->{fields}->{mailbox}->{domain} = \'$domain}\'"
 	}else{
 		$query = "select count(*) from `$self->{tables}->{mailbox}`";
 	}
@@ -347,9 +357,7 @@ sub numUsers(){
 
 =head3 getDomains() 
 
-Returns a list of domains on the system. You may pass a regex as an argument, and only those domains matching that regex are supplied. There's 
-no way of passing options, and the regex is matched case-sensitively - you need to build insensitivity in to the pattern if you want it.
-
+Returns a list of domains on the system.
 =cut
 
 sub getDomains(){
@@ -361,32 +369,28 @@ sub getDomains(){
 		table => 'domain',
 		fields => [ "domain" ],
 	);
-	my @return;
-	foreach(@results){
-		push(@return, $_->{domain});
-	}
-	return(@return);
+	my @domains = map ($_->{'domain'}, @results);
+	return @domains;
 }
 
 
 =head3 getUsers() 
 
-Returns a list of users on the system (or, if it's previously been defined, the domain). 
-
-You may pass a regex as an argument, and only those users matching that regex are supplied. There's no way of passing options, and the regex is 
-matched case-sensitively - you need to build insensitivity in to the pattern if you want it.
+Returns a list of users on the system or, if it's previously been defined, or 
+is passed as an argument, the domain. 
 
 =cut
 
 sub getUsers(){
 	my $self = shift;
+	my $domain = shift;
 	my $query;
 	my @results;
-	if ($self->{_domain}){
+	if ($domain =~ /.+/){
 		@results = $self->_dbSelect(
 			table  => 'mailbox',
 			fields => [ 'username' ],
-			equals => [ 'domain', $self->{_domain}],
+			equals => [ 'domain', $domain],
 		);
 	}else{
 		@results = $self->_dbSelect(
@@ -400,16 +404,16 @@ sub getUsers(){
 
 =head3 getAliasUsers()
 
-Returns a list of alias users on the system or, if a domain is set, the current 
-domain.
+Returns a list of alias users on the system or, if a domain is set or passed as
+an argument, the domain.
 
 =cut
 
 sub getAliasUsers() {
 	my $self = shift;
+	my $domain = shift;
 	my @results;
-	if ( $self->{_domain} ){
-		my $domain = $self->{_domain};
+	if ( $domain ){
 		my $like = '%'.$domain; 
 		@results = $self->_dbSelect(
 			table  => 'alias',
@@ -442,20 +446,20 @@ sub getAliasUsers() {
 
 =head3 domainExists() and userExists()
 
-Check for the existence of a user or a domain. Returns the amount it found (in anticipation of also serving as a sort-of search)
-if the domain or user does exist, empty otherwise.
+Check for the existence of a user or a domain. Returns the amount it found (in 
+anticipation of also serving as a sort-of search) if the domain or user does 
+exist, empty otherwise.
 
 =cut
 
 sub domainExists(){
 	my $self = shift;
-	my $domain;
-	$domain = $self->{_domain};
+	my $domain = shift;
 	if ($domain eq ''){
-		Carp::croak "No domain set";
+		Carp::croak "No domain passed";
 	}
-	if($self->domainIsAlias > 0){
-		return $self->domainIsAlias;
+	if($self->domainIsAlias($domain) > 0){
+		return $self->domainIsAlias($domain);
 	}
 	my $query = "select count(*) from $self->{tables}->{domain} where $self->{fields}->{domain}->{domain} = \'$domain\'";
 	my $sth = $self->{dbi}->prepare($query);
@@ -492,14 +496,15 @@ sub userExists(){
 
 =head3 domainIsAlias()
 
-Checks whether the currently set domain is an alias domain. Returns the amount of 'targets' the 
-domain has been configured as an alias to. This should only ever be 0 or 1 in normal use.
+Checks whether the currently set domain is an alias domain. Returns the amount 
+of 'targets' the domain has been configured as an alias to. This should only 
+ever be 0 or 1 in normal use.
 
 =cut
 
 sub domainIsAlias(){
 	my $self = shift;
-	my $domain = $self->{_domain};
+	my $domain = shift;
 	if ($domain eq ''){
 		Carp::croak "No domain set";
 	}
@@ -523,7 +528,7 @@ Returns the target of the currently set domain if it's an alias, undef otherwise
 
 sub getAliasDomainTarget(){
 	my $self = shift;
-	my $domain = $self->{_domain};
+	my $domain = shift;
 	if ($domain eq ''){
 		Carp::croak "No domain set";
 	}
@@ -542,14 +547,15 @@ sub getAliasDomainTarget(){
 
 =head3 domainIsTarget()
 
-Checks whether the currently set domain is the target of an alias domain. Returns the amount of 
-aliases that have the set domain as their targets, undef if none are found.
+Checks whether the currently set domain is the target of an alias domain. 
+Returns the amount of aliases that have the set domain as their targets, undef 
+if none are found.
 
 =cut
 
 sub domainIsTarget(){
 	my $self = shift;
-	my $domain = $self->{_domain};
+	my $domain = shift;
 	if ($domain eq ''){
 		Carp::croak "No domain set";
 	}
@@ -567,9 +573,10 @@ sub domainIsTarget(){
 
 =head3 userIsAlias()
 
-Checks whether the currently set user is an alias to another address. Returns the number of rows
-in which the user is configured as an alias, *not* the amount of target addresses (see C<getUserTargets> 
-for that), undef if it's not an alias.
+Checks whether the currently set user is an alias to another address. Returns 
+the number of rows in which the user is configured as an alias, *not* the amount
+of target addresses (see C<getUserTargets> for that), undef if it's not an 
+alias.
 
 =cut
 
@@ -591,9 +598,10 @@ sub userIsAlias{
 
 =head3 userIsTarget()
 
-Checks for the currently set user as a target address. Returns the number of rows in which the user
-is configured as an alias (which should be the number of unique addresses, but may not be. Use
-C<getUserAliases()> for a more accurate count), undef if it's not a target.
+Checks for the currently set user as a target address. Returns the number of 
+rows in which the user is configured as an alias (which should be the number of
+unique addresses, but may not be. Use C<getUserAliases()> for a more accurate 
+count), undef if it's not a target.
 
 =cut
 
@@ -672,8 +680,9 @@ sub getAliasUserTarget{
 }
 =head3 getUserInfo()
 
-Returns a hash containing info about the user. The keys are the same as the internally-used names for the fields
-in the SQL (as you can find from C<getFields()> and C<getTables()> ).
+Returns a hash containing info about the user. The keys are the same as the 
+internally-used names for the fields in the SQL (as you can find from 
+C<getFields()> and C<getTables()> ).
 
 The hash keys are essentially the same as those found by getFields:
 
@@ -682,7 +691,8 @@ The hash keys are essentially the same as those found by getFields:
 	name		The human name associated with the username
 	domain		The domain the user is associated with
 	local_part	The local part of the email address
-	maildir		The path to the maildir *relative to the maildir root configured in Postfix/Dovecot*
+	maildir		The path to the maildir *relative to the maildir root 
+			configured in Postfix/Dovecot*
 	active		Whether or not the user is active
 	created		Creation data
 	modified	Last modified data
@@ -690,8 +700,8 @@ The hash keys are essentially the same as those found by getFields:
 
 User needs to have been set previously.
 
-The hash is returned even in the eventuality that it is empty. This function does not test for the existence of
-a user, (use C<userExists()> for that).
+The hash is returned even in the eventuality that it is empty. This function 
+does not test for the existence of a user, (use C<userExists()> for that).
 
 =cut
 
@@ -716,8 +726,9 @@ sub getUserInfo(){
 
 =head3 getDomainInfo()
 
-Returns a hash containing info about the domain. The keys are the same as the internally-used names for the fields
-in the SQL (as you can find from getFields and getTables), with a couple of additions:
+Returns a hash containing info about the domain. The keys are the same as the 
+internally-used names for the fields in the SQL (as you can find from getFields
+and getTables), with a couple of additions:
 
 	domain		The domain name (hopefully redundant)
 	description	Content of the description field
@@ -725,9 +736,11 @@ in the SQL (as you can find from getFields and getTables), with a couple of addi
 	transport	Postfix transport (usually virtual)
 	active		Whether the domain is active or not
 	backupmx0	Whether this is a  backup MX for the domain
-	mailboxes	Array of mailbox usernames associated with the domain (note: the full username, not just the local part)
+	mailboxes	Array of mailbox usernames associated with the domain 
+			(note: the full username, not just the local part)
 	modified	last modified date 
-	num_mailboxes   Count of the mailboxes (effectively, the length of the array in mailboxes)
+	num_mailboxes   Count of the mailboxes (effectively, the length of the 
+			array in mailboxes)
 	created		Creation data
 	aliases		Alias quota for the domain
 	maxquota	Mailbox quota for teh domain
@@ -735,13 +748,14 @@ in the SQL (as you can find from getFields and getTables), with a couple of addi
 
 Domain needs to have been set previously.
 
-The hash is returned even if it is empty - this does not check for the existence of a domain, that's what I gave you C<domainExists()> for.
+The hash is returned even if it is empty - this does not check for the existence
+of a domain, that's what I gave you C<domainExists()> for.
 
 =cut
 
 sub getDomainInfo(){
 	my $self = shift;
-	my $domain = $self->{_domain};
+	my $domain = shift;
 	my $query = "select * from `$self->{tables}->{domain}` where $self->{fields}->{domain}->{domain} = '$domain'";
 
 	if ($domain eq ''){
@@ -779,14 +793,15 @@ sub getDomainInfo(){
 
 =head3 getTargetAliases()
 
-Returns a list of aliases for the target currently set as the domain. Returns false if the domain is not
-listed as a target, an empty list if the domain is listed as a target, but the alias is NULL.
+Returns a list of aliases for the target currently set as the domain. Returns 
+false if the domain is not listed as a target, an empty list if the domain is 
+listed as a target, but the alias is NULL.
 
 =cut
 
 sub getTargetAliases{
 	my $self = shift;
-	my $domain = $self->{_domain};
+	my $domain = shift;
 	if ($domain eq ''){ Carp::croak "No domain set"; }
 	my @results = $self->_dbSelect(
 		table  => "alias_domain",
@@ -808,8 +823,9 @@ sub getTargetAliases{
 
 =head3 cryptPassword()
 
-This probably has no real use, except for where other functions use it. It should let you specify a 
-salt for the password, but doesn't yet. It expects a cleartext password as an argument, and returns the crypted sort. 
+This probably has no real use, except for where other functions use it. It 
+should let you specify a salt for the password, but doesn't yet. It expects a 
+cleartext password as an argument, and returns the crypted sort. 
 
 =cut
 
@@ -822,9 +838,11 @@ sub cryptPassword(){
 
 =head3 changePassword() 
 
-Changes the password of a user. The user should be set with C<setUser> (or equivalent) and the cleartext password 
-passed as an argument. It returns the encrypted password as written to the DB. 
-The salt is picked at pseudo-random; successive runs will (should) produce different results.
+Changes the password of a user. The user should be set with C<setUser> (or 
+equivalent) and the cleartext password passed as an argument. It returns the 
+encrypted password as written to the DB. 
+The salt is picked at pseudo-random; successive runs will (should) produce 
+different results.
 
 =cut
 
@@ -851,9 +869,10 @@ sub changePassword(){
 
 =head3 changeCryptedPassword()
 
-changeCryptedPassword operates in exactly the same way as changePassword, but it expects to be passed an already-encrypted 
-password, rather than a clear text one. It does no processing at all of its arguments, just writes it
-into the database.
+changeCryptedPassword operates in exactly the same way as changePassword, but it 
+expects to be passed an already-encrypted password, rather than a clear text 
+one. It does no processing at all of its arguments, just writes it into the 
+database.
 
 =cut
 
@@ -879,9 +898,10 @@ sub changeCryptedPassword(){
 
 =head3 createDomain()
 
-Expects to be passed a hash of options, with the keys being the same as those output by C<getDomainInfo()>. None
-are necessary (provided C<setDomain()> has been called so it knows which domain it's creating). If the 'domain' 
-key is in the hash passed, this overrules the set domain.
+Expects to be passed a hash of options, with the keys being the same as those 
+output by C<getDomainInfo()>. None are necessary (provided C<setDomain()> has 
+been called so it knows which domain it's creating). If the 'domain' key is in 
+the hash passed, this overrules the set domain.
 
 Defaults are set as follows:
 
@@ -896,14 +916,17 @@ Defaults are set as follows:
 	aliases		MySQL's default
 	maxquota	MySQL's default
 
-Defaults are only set on keys that haven't been instantiated. If you set a key to undef or a null string, it will
-not be set to the default - null will be passed to the DB and it may set its own default.
+Defaults are only set on keys that haven't been instantiated. If you set a key 
+to undef or a null string, it will not be set to the default - null will be 
+passed to the DB and it may set its own default.
 
-On both success and failure the function will return a hash containing the options used to configure the domain - 
-you can inspect this to see which defaults were set by the module if you like.
+On both success and failure the function will return a hash containing the 
+options used to configure the domain - you can inspect this to see which 
+defaults were set by the module if you like.
 
-If the domain already exists, this function will not alter it. It wil exit with a return value of 2 (indicating that
-it thinks its job has already been done) and populate the C<infostr> with "Domain already exists (<domain>)". In this 
+If the domain already exists, this function will not alter it. It wil exit with 
+a return value of 2 (indicating that it thinks its job has already been done) 
+and populate the C<infostr> with "Domain already exists (<domain>)". In this 
 instance, you don't get the hash.
 
 =cut
@@ -949,12 +972,14 @@ sub createDomain(){
 
 =head3 createUser()
 
-Expects to be passed a hash of options, with the keys being the same as those output by C<etUserInfo()>. None
-are necessary (provided a user has been set so it knows which user to create). If the 'username' key is in the
-passed hash, it overrides any set user.
+Expects to be passed a hash of options, with the keys being the same as those 
+output by C<etUserInfo()>. None are necessary (provided a user has been set so 
+it knows which user to create). If the 'username' key is in the passed hash, it 
+overrides any set user.
 
-If both C<password_plain> and <password_crypt> are in the passed hash, C<password_crypt> will be used. If only 
-password_plain is passed it will be crypted with C<cryptPasswd()> and then inserted.
+If both C<password_plain> and <password_crypt> are in the passed hash, 
+C<password_crypt> will be used. If only password_plain is passed it will be 
+crypted with C<cryptPasswd()> and then inserted.
 
 Defaults are mostly sane where values aren't explicitly passed:
 
@@ -969,15 +994,18 @@ Defaults are mostly sane where values aren't explicitly passed:
  modified	now
  active		MySQL's default
 
-These are only set if they fail an C<exists()> test; if C<undef> is passed, for example, it will not be clobbered 
-- null will be written to MySQL and it will take care of any defaults.
+These are only set if they fail an C<exists()> test; if C<undef> is passed, for
+example, it will not be clobbered - null will be written to MySQL and it will 
+take care of any defaults.
 
-On both success and failure, the function will return a hash containing the options used to configure the user - 
-you can inspect this to see which defaults were set.
+On both success and failure, the function will return a hash containing the 
+options used to configure the user - you can inspect this to see which defaults 
+were set.
 
-If the domain already exists, this function will not alter it. It wil exit with a return value of 2 (indicating that
-it thinks its job has already been done) and populate C<infostr> with "User already exists (<user>)" In this 
-instance, you don't get the hash.
+If the domain already exists, this function will not alter it. It wil exit with 
+a return value of 2 (indicating that it thinks its job has already been done) 
+and populate C<infostr> with "User already exists (<user>)" In this instance, 
+you don't get the hash.
 
 =cut
 
@@ -1048,19 +1076,23 @@ sub createUser(){
 
 =head3 createAliasDomain()
 
-Causes the currently set domain to be set as an alias to the target supplied in a hash passed as an argument:
+Causes the currently set domain to be set as an alias to the target supplied in
+a hash passed as an argument:
 
  $v->setDomain('alias.com');
  $v->createAliasDomain( target => 'target.com');
 
-will cause all mail sent to something@alias.com to be forwarded to something@target.com. Notably, it does not 
-check that the domain is not already aliased somewhere, so you can end up aliasing one domain to two targets 
-which is probably not what you want.
+will cause all mail sent to something@alias.com to be forwarded to 
+something@target.com. Notably, it does not check that the domain is not already
+aliased somewhere, so you can end up aliasing one domain to two targets which 
+is probably not what you want.
 
 You can pass three other keys in the hash, though only C<target> is required:
- created	'created' date. Is passed verbatim to the db so should be in a format it understands.
+ created	'created' date. Is passed verbatim to the db so should be in a 
+ 		format it understands.
  modified	Ditto but for the modified date
- active		The status of the domain. Again, passed verbatim to the db, but probably should be a '1' or a '0'.
+ active		The status of the domain. Again, passed verbatim to the db, 
+ 		but probably should be a '1' or a '0'.
 
 =cut
 
@@ -1130,9 +1162,10 @@ You may forward to more than one address by passing a comma-separated string:
 
  $v->createAliasDomain( target => 'target@example.org, target@example.net');
 
-For some reason, the domain is stored in the db. If you pass a C<domain> key in the hash, this is
-used. If not, a domain set with setDomain(); is checked for and if that's not set a regex is applied 
-to the username ( C</\@(.+)$/> ). If that doesn't match, an exception is raised.
+For some reason, the domain is stored in the db. If you pass a C<domain> key in 
+the hash, this is used. If not, a domain set with setDomain(); is checked for 
+and if that's not set a regex is applied to the username ( C</\@(.+)$/> ). If 
+that doesn't match, an exception is raised.
 
 You can pass three other keys in the hash, though only C<target> is required:
 
