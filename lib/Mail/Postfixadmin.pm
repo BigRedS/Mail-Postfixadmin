@@ -133,7 +133,7 @@ sub new() {
 
 
 	if (!$self->{dbi}){
-		Carp::croak
+		Carp::croak "No dbi object created";
 	}
 
 	$self->{storeCleartextPassword} = $self->{_params}->{storeCleartextPassword} || 0;
@@ -456,7 +456,7 @@ sub domainExists(){
 	my $self = shift;
 	my $domain = shift;
 	if ($domain eq ''){
-		Carp::croak "No domain passed";
+		Carp::croak "No domain passed to domainExists";
 	}
 	if($self->domainIsAlias($domain) > 0){
 		return $self->domainIsAlias($domain);
@@ -475,12 +475,15 @@ sub domainExists(){
 
 sub userExists(){
 	my $self = shift;
-	my $user = $self->{_user};
+	my $user = shift;
+
+
 	if ($user eq ''){
-		Carp::croak "No user set";
+		Carp::croak "No username passed to userExists";
 	}
-	if ($self->userIsAlias){
-		return $self->userIsAlias;
+
+	if ($self->userIsAlias($user)){
+		return $self->userIsAlias($user);
 	}
 	my $query = "select count(*) from $self->{tables}->{mailbox} where $self->{fields}->{mailbox}->{username} = '$user'";
 	my $sth = $self->{dbi}->prepare($query);
@@ -506,7 +509,7 @@ sub domainIsAlias(){
 	my $self = shift;
 	my $domain = shift;
 	if ($domain eq ''){
-		Carp::croak "No domain set";
+		Carp::croak "No domain passed to domainIsAlias";
 	}
 	my $query = "select count(*) from $self->{tables}->{alias_domain} where $self->{fields}->{alias_domain}->{alias_domain} = '$domain'";
 	my $sth = $self->{dbi}->prepare($query);
@@ -530,7 +533,7 @@ sub getAliasDomainTarget(){
 	my $self = shift;
 	my $domain = shift;
 	if ($domain eq ''){
-		Carp::croak "No domain set";
+		Carp::croak "No domain passed to getAliasDomainTarget";
 	}
 	unless ($self->domainIsAlias){
 		return;
@@ -557,7 +560,7 @@ sub domainIsTarget(){
 	my $self = shift;
 	my $domain = shift;
 	if ($domain eq ''){
-		Carp::croak "No domain set";
+		Carp::croak "No domain passed to domainIstarget";
 	}
 	my $query = "select count(*) from $self->{tables}->{alias_domain} where $self->{fields}->{alias_domain}->{target_domain} = '$domain'";
 	my $sth = $self->{dbi}->prepare($query);
@@ -582,8 +585,8 @@ alias.
 
 sub userIsAlias{
 	my $self = shift;
-	my $user = $self->{_user};
-	if ($user eq ''){ Carp::croak "No user set";}
+	my $user = shift;
+	if ($user eq ''){ Carp::croak "No user passed to userIsAlias";}
 	my $query = "select count(*) from $self->{tables}->{alias} where $self->{fields}->{alias}->{address} = '$user'";
 	my $sth = $self->{dbi}->prepare($query);
 	$sth->execute;
@@ -608,7 +611,7 @@ count), undef if it's not a target.
 sub userIsTarget{
 	my $self = shift;
 	my $user = $self->{_user};
-	if ($user eq ''){ Carp::croak "No user set";}
+	if ($user eq ''){ Carp::croak "No user passed to userIsTarget";}
 	my @results = $self->_dbSelect(
 		count => 'true',
 		like  => ['goto', "%$user%"],
@@ -632,7 +635,7 @@ Returns a list of aliases for which the current user is a target.
 sub getUserAliases{
 	my $self = shift;
 	my $user = $self->{_user};
-	if ($user eq ''){ Carp::croak "No user set";}
+	if ($user eq ''){ Carp::croak "No user passed to getUserAliases";}
 	my $query = "select $self->{fields}->{alias}->{address} from $self->{tables}->{alias} where $self->{fields}->{alias}->{goto} like '%user%'";
 	my $sth = $self->{dbi}->prepare($query);
 	$sth->execute;
@@ -653,7 +656,7 @@ Returns an array of addresses for which the current user is an alias.
 sub getAliasUserTargetArray{
 	my $self = shift;
 	my $user = $self->{_user};
-	if ($user eq ''){ Carp::croak "No user set";}
+	if ($user eq ''){ Carp::croak "No user passed to getAliasUserTargetArray";}
 	my $query = "select $self->{fields}->{alias}->{goto} from $self->{tables}->{alias} where $self->{fields}->{alias}->{address} like '%$user%'";
 	my $sth = $self->{dbi}->prepare($query);
 	$sth->execute;
@@ -710,7 +713,7 @@ sub getUserInfo(){
 	my $user;
 	$user = $self->{_user};
 	if ($user eq ''){
-		Carp::croak "No user set";
+		Carp::croak "No user passed to getUserInfo";
 	}
 	my %userinfo;
 	my @results = $self->_dbSelect(
@@ -759,7 +762,7 @@ sub getDomainInfo(){
 	my $query = "select * from `$self->{tables}->{domain}` where $self->{fields}->{domain}->{domain} = '$domain'";
 
 	if ($domain eq ''){
-		Carp::croak "No domain set";
+		Carp::croak "No domain passed to getDomainInfo";
 	}
 
 	my $domaininfo = $self->{dbi}->selectrow_hashref($query);
@@ -802,7 +805,7 @@ listed as a target, but the alias is NULL.
 sub getTargetAliases{
 	my $self = shift;
 	my $domain = shift;
-	if ($domain eq ''){ Carp::croak "No domain set"; }
+	if ($domain eq ''){ Carp::croak "No domain passed to getTargetAliases"; }
 	my @results = $self->_dbSelect(
 		table  => "alias_domain",
 		fields => ["alias_domain"],
@@ -848,10 +851,10 @@ different results.
 
 sub changePassword(){
 	my $self = shift;
-	my $user = $self->{_user};
+	my $user = shift;
 	my $password = shift;
 	if ($user eq ''){
-		Carp::croak "No user set";
+		Carp::croak "No user passed to changePassword";
 	}
 	
 	my $cryptedPassword = $self->cryptPassword($password);
@@ -881,7 +884,7 @@ sub changeCryptedPassword(){
 	my $user = $self->{_user};
 
 	if ($user eq ''){
-		Carp::croak "No user set";
+		Carp::croak "No user passed to changeCryptedPassword";
 	}
 	my $cryptedPassword = shift;
 
@@ -936,14 +939,13 @@ sub createDomain(){
 	my %opts = @_;
 	my $fields;
 	my $values;
-	$opts{domain} = $self->{_domain} unless exists($opts{domain});
-	$self->{_domain} = $opts{domain};
-	if($self->{_domain} eq ''){
-		Carp::croak "No domain set";
+	if($opts{'domain'} eq ''){
+		Carp::croak "No domain passed to createDomain";
 	}
+	my $domain = $opts{'domain'};
 
-	if ($self->domainExists){
-		$self->{infostr} = "Domain already exists ($self->{_domain})";
+	if ($self->domainExists($domain)){
+		$self->{infostr} = "Domain '$domain' already exists";
 		return 2;
 	}
 
@@ -962,7 +964,7 @@ sub createDomain(){
 	my $sth = $self->{dbi}->prepare($query);
 	$sth->execute();	
 	$self->{infostr} = $query;
-	if($self->domainExists()){
+	if($self->domainExists($domain)){
 		return %opts;
 	}else{
 		$self->{errstr} = "Everything appeared to succeed, but the domain doesn't exist";
@@ -983,7 +985,7 @@ crypted with C<cryptPasswd()> and then inserted.
 
 Defaults are mostly sane where values aren't explicitly passed:
 
-
+ username	required; no default
  password	null
  name		null
  maildir 	username with a '/' appended to it
@@ -1015,16 +1017,15 @@ sub createUser(){
 	my $fields;
 	my $values;
 
-	$opts{username} = $self->{_user} unless (exists $opts{username});
-	$self->{_user} = $opts{username};
-	if($self->{_user} eq ''){
-		Carp::croak "No user set";
+	if($opts{"username"} eq ''){
+		Carp::croak "no username passed to createUser";
 	}
-	if($self->userExists()){
+	my $user = $opts{"username"};
+
+	if($self->userExists($user)){
 		$self->{infostr} = "User already exists ($self->{_user})";
 		return 2;
 	}
-
 	if($opts{password_crypt}){
 		$opts{password} = $opts{password_crypt};
 	}elsif($opts{password_clear}){
@@ -1057,7 +1058,7 @@ sub createUser(){
 		}
 	}
 	if ($opts{username} eq ''){
-		Carp::croak "No user set";
+		Carp::croak "No user passed to createUser";
 	}
 	$values =~ s/, $//;
 	$fields =~ s/, $//;
@@ -1066,7 +1067,7 @@ sub createUser(){
 	my $sth = $self->{dbi}->prepare($query);
 	$sth->execute();	
 	$self->{infostr} = $query;
-	if($self->userExists()){
+	if($self->userExists($user)){
 		return %opts;
 	}else{
 		$self->{errstr} = "Everything appeared to succeed, but the user doesn't exist";
@@ -1101,10 +1102,10 @@ sub createAliasDomain {
 	my $self = shift;
 	my %opts = @_;
 	if ($self->{_domain} eq ''){
-		Carp::croak "No domain set";
+		Carp::croak "No domain passed to createAliasDomain";
 	}
 	unless(exists($opts{'target'})){
-		Carp::croak "No target passed";
+		Carp::croak "No target passed to createAliasDomain";
 	}
 
 	if($self->domainIsAlias){
@@ -1195,17 +1196,17 @@ sub createAliasUser {
 	my $self = shift;
 	my %opts = @_;
 	if ($self->{_user} eq ''){
-		Carp::croak "No user set";
+		Carp::croak "No user passed to createAliasUser";
 	}
 	$opts{alias} = $self->{_user} if ${opts}{alias} eq '';
 	unless(exists($opts{'target'})){
-		Carp::croak "No target passed";
+		Carp::croak "No target passed to createAliasUser";
 	}
 	if($self->userExists){
-		Carp::croak "User $self->{_user} already exists";
+		Carp::croak "User $self->{_user} already exists in createAliasUser";
 	}
 	if($self->userIsAlias){
-		Carp::croak "User $self->{_user} is already an alias";
+		Carp::croak "User $self->{_user} is already an alias in createAliasUser";
 	}
 	unless(exists($opts{domain})){
 		if($self->{_domain}){
@@ -1213,7 +1214,7 @@ sub createAliasUser {
 		}elsif($self->{_user} =~ /\@(.+)$/){
 			$opts{domain} = $1;
 		}else{	
-			Carp::croak "Error determining domain from user '$self->{_user}'";
+			Carp::croak "Error determining domain from user '$self->{_user}' in createAliasUser";
 		}
 	}
 	#TODO: Accept arrays
@@ -1271,7 +1272,7 @@ sub removeUser(){
 	my $self = shift;
 	my $username = $self->{_user};
 	if($self->{_user} eq ''){
-		Carp::croak "No user set";
+		Carp::croak "No user passed to removeUser";
 	}
 	if (!$self->userExists){
 		$self->{infostr} = "User doesn't exist ($self->{_user}) ";
@@ -1305,7 +1306,7 @@ sub removeDomain(){
 	my $self = shift;
 	my $domain = $self->{_domain};
 	if ($domain eq ''){
-		Carp::croak "No domain set";
+		Carp::croak "No domain passed to removeDomain";
 	}
 	unless ($self->domainExists > 0){
 		$self->{errstr} = "Domain doesn't exist";
@@ -1347,7 +1348,7 @@ sub removeAliasDomain{
 	my $self = shift;
 	my $domain = $self->{_domain};
 	if ($domain eq ''){
-		Carp::croak "No domain set";
+		Carp::croak "No domain passed to removeAliasDomain";
 	}
 	if (!$self->domainIsAlias){
 		$self->{infostr} = "Domain is not an alias ($self->{_domain})";
@@ -1362,7 +1363,7 @@ sub removeAliasUser{
 	my $self = shift;
 	my $user = $self->{_user};
 	if ($user eq ''){
-		Carp::croak "No user set";
+		Carp::croak "No user passed to removeAliasUser";
 	}
 	if (!$self->userIsAlias){
 		$self->{infoStr} = "user is not an alias ($self->{_user})";
