@@ -754,10 +754,12 @@ sub createDomain(){
 	my %opts = @_;
 	my $fields;
 	my $values;
+	my $domain = $opts{'domain'};
+
+
 	if($opts{'domain'} eq ''){
 		Carp::croak "No domain passed to createDomain";
 	}
-	my $domain = $opts{'domain'};
 
 	if ($self->domainExists($domain)){
 		$self->{infostr} = "Domain '$domain' already exists";
