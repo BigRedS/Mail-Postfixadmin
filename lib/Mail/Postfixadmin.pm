@@ -221,7 +221,8 @@ Returns a list of all users. If a domain is passed, only returns users on that d
 sub getUsers(){
 	my $self = shift;
 	my $domain = shift;
-	my @users = @{ $self->getRealUsers($domain) }, @{ $self->getAliasUsers($domain) };
+	my (@users,@aliases);
+	@users = $self->getRealUsers($domain), $self->getAliasUsers($domain);
 	return @users;
 }
 
@@ -243,7 +244,6 @@ sub getRealUsers(){
 			table  => 'mailbox',
 			fields => [ 'username' ],
 			equals => [ 'domain', $domain],
-			equals => [ 'goto'. ''],
 		);
 	}else{
 		@results = $self->_dbSelect(
@@ -252,7 +252,8 @@ sub getRealUsers(){
 			equals => [ 'goto'. ''],
 		);
 	}
-	my @users = map ($_->{'username'}, @results);
+	my @users;
+	@users = map ($_->{'username'}, @results);
 	return @users;
 }
 
@@ -350,9 +351,9 @@ Actually returns the number of aliases the domain has.
 sub domainIsAlias(){
 	my $self = shift;
 	my $domain = shift;
-	if ($domain eq ''){
-		Carp::croak "No domain passed to domainIsAlias";
-	}
+
+	Carp::croak "No domain passed to domainIsAlias" if $domain eq '';
+
 	my $query = "select count(*) from $self->{tables}->{alias_domain} where $self->{fields}->{alias_domain}->{alias_domain} = '$domain'";
 	my $sth = $self->{dbi}->prepare($query);
 	$sth->execute;
@@ -377,7 +378,7 @@ sub getAliasDomainTarget(){
 	if ($domain eq ''){
 		Carp::croak "No domain passed to getAliasDomainTarget";
 	}
-	unless ($self->domainIsAlias){
+	unless ( $self->domainIsAlias($domain) ){
 		return;
 	}
 	my @output = $self->_dbSelect(
@@ -505,7 +506,7 @@ sub getAliasUserTargets{
 
 	my @gotos = $self->_dbSelect(
 		table	=> 'alias',
-		fields	=> 'goto',
+		fields	=> ['goto'],
 		equals	=> [ 'address', $user ],
 	);
 #	my $query = "select $self->{fields}->{alias}->{goto} from $self->{tables}->{alias} where $self->{fields}->{alias}->{address} like '%$user%'";
@@ -550,8 +551,9 @@ sub getUserInfo(){
 		fields => ['*'],
 		equals => ['username', $user]
 	);
-	my %return = %{$results[0]};
-	return %return;
+#	my %return = %{$results[0]};
+#	return %return;
+	return @results;
 }
 
 
@@ -756,8 +758,9 @@ sub createDomain(){
 	my $values;
 	my $domain = $opts{'domain'};
 
+	Carp::croak "No domain passed to createDomain" if $domain !~ /.+/;
 
-	if($opts{'domain'} eq ''){
+	if($domain eq ''){
 		Carp::croak "No domain passed to createDomain";
 	}
 
@@ -825,9 +828,8 @@ sub createUser(){
 	my $fields;
 	my $values;
 
-	if($opts{"username"} eq ''){
-		Carp::croak "no username passed to createUser";
-	}
+	Carp::croak "no username passed to createUser" if $opts{"username"} eq '';
+	
 	my $user = $opts{"username"};
 
 	if($self->userExists($user)){
@@ -911,25 +913,22 @@ are required:
 sub createAliasDomain {
 	my $self = shift;
 	my %opts = @_;
-	my $domain = $opts{'domain'};
-	if ($domain eq ''){
-		Carp::croak "No domain passed to createAliasDomain";
-	}
-	unless(exists($opts{'target'})){
-		Carp::croak "No target passed to createAliasDomain";
-	}
+	my $domain = $opts{'alias'};
+	my $target = $opts{'target'};
+
+	Carp::croak "No alias passed to createAliasDomain" if $domain !~ /.+/;
+	Carp::croak "No target passed to createAliasDomain" if $target !~ /.+/;
 
 	if($self->domainIsAlias($domain)){
 		$self->{errstr} = "Domain $domain is already an alias";
 		##TODO: createAliasDomain return current target if the domain is already an alias
 		return;
 	}
-	unless($self->domainExists($domain)){
-		$self->createDomain($domain);
+	unless($self->domainExists("domain" => $domain)){
+		$self->createDomain( "domain" => $domain);
 	}
 	my $fields = "$self->{fields}->{alias_domain}->{alias_domain}, $self->{fields}->{alias_domain}->{target_domain}";
 	my $values = " '$domain', '$opts{target}'";
-
 
 	$fields.=", $self->{fields}->{alias_domain}->{created}";
 	if(exists($opts{'created'})){
@@ -1012,9 +1011,9 @@ C<target> if you've passed a scalar, or the array passed joined on a comma.
 sub createAliasUser {
 	my $self = shift;
 	my %opts = @_;
-	my $user = $opts{"user"};
+	my $user = $opts{"alias"};
 	if ($user eq ''){
-		Carp::croak "No user key in hash passed to createAliasUser";
+		Carp::croak "No alias key in hash passed to createAliasUser";
 	}
 	unless(exists($opts{'target'})){
 		Carp::croak "No target key in hash passed to createAliasUser";
@@ -1160,7 +1159,7 @@ sub removeAliasDomain{
 	if ($domain eq ''){
 		Carp::croak "No domain passed to removeAliasDomain";
 	}
-	if (!$self->domainIsAlias){
+	if ( !$self->domainIsAlias($domain) ){
 		$self->{infostr} = "Domain is not an alias ($domain)";
 		return 3;
 	}
@@ -1478,6 +1477,7 @@ sub _dbSelect {
 	while(my $row = $sth->fetchrow_hashref){
 		push(@return, $row);
 	}
+	print "\n\n<$query>\n\n";
 	return @return;
 }
 
@@ -1489,6 +1489,23 @@ sub _mysqlNow() {
 	my $date = $y + 1900 ."-".sprintf("%02d",$m)."-$d";
 	my $time = "$hr:$mi:$se";
 	return "$date $time";
+}
+
+sub generatePassword() {
+	my $self = shift;
+	my $length = shift;
+	print $length."\n";
+	my @characters = qw/a b c d e f g h i j k l m n o p q r s t u v w x y z
+			    A B C D E F G H I J K L M N O P Q R S T U V W X Y Z 
+			    1 2 3 4 5 6 7 8 9 0 - =
+			    ! " £ $ % ^ & * ( ) _ +
+			    [ ] ; # , . : @ ~ < > ?
+			  /;
+	my $password;
+	for( my $i = 0; $i<$length; $i++ ){
+		$password .= $characters[rand($#characters)];
+	}
+	return $password;
 }
 
 =head1 CLASS VARIABLES
