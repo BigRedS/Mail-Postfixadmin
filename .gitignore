@@ -3,3 +3,5 @@ pod2htm*
 t.pl
 *.swo
 *.swn
+test
+*.txt
