@@ -671,17 +671,8 @@ sub changePassword(){
 	if ($user eq ''){
 		Carp::croak "No user passed to changePassword";
 	}
-	
 	my $cryptedPassword = $self->cryptPassword($password);
-	my $query;
-	if($self->{storeCleartextPassword} > 0){
-		$query = "update `$self->{tables}->{mailbox}` set `$self->{fields}->{mailbox}->{password}`='$cryptedPassword', `$self->{fields}->{mailbox}->{password_clear}`='$password' where `$self->{fields}->{mailbox}->{username}`='$user'";
-	}else{
-		$query = "update `$self->{tables}->{mailbox}` set `$self->{fields}->{mailbox}->{password}`='$cryptedPassword' where `$self->{fields}->{mailbox}->{username}`='$user'";
-	}
-	$self->{infostr} = $query;
-	my $sth = $self->{dbi}->prepare($query);
-	$sth->execute();
+	$self->changeCryptedPassword($user, $cryptedPassword);
 	return $cryptedPassword;
 }
 
@@ -702,13 +693,18 @@ sub changeCryptedPassword(){
 		Carp::croak "No user passed to changeCryptedPassword";
 	}
 	my $cryptedPassword = shift;
+	my $password = shift;
 
-	my $query = "update `$self->{tables}->{mailbox}` set `$self->{fields}->{mailbox}->{password}`=? where `$self->{fields}->{mailbox}->{username}`='$user'";
-
+	my $query;
+	if($self->{storeCleartextPassword} > 0){
+		$query = "update `$self->{tables}->{mailbox}` set `$self->{fields}->{mailbox}->{password}`='$cryptedPassword', `$self->{fields}->{mailbox}->{password_clear}`='$password' where `$self->{fields}->{mailbox}->{username}`='$user'";
+	}else{
+		$query = "update `$self->{tables}->{mailbox}` set `$self->{fields}->{mailbox}->{password}`='$cryptedPassword' where `$self->{fields}->{mailbox}->{username}`='$user'";
+	}
+	print $query."\n";
 	my $sth = $self->{dbi}->prepare($query);
-	$sth->execute($cryptedPassword);
+	$sth->execute();
 
-	$self->{infostr} = $query;
 	return $cryptedPassword;
 }
 
@@ -1403,6 +1399,8 @@ sub _fields(){
 	return %fields;
 }
 
+
+	
 # Hopefully, a generic sub to pawn all db lookups off onto
 #  _dbSelect(
 #       table     => 'table',
@@ -1466,7 +1464,6 @@ sub _dbSelect {
 	while(my $row = $sth->fetchrow_hashref){
 		push(@return, $row);
 	}
-#	print "\n\n<$query>\n\n";
 	return @return;
 }
 
@@ -1483,7 +1480,6 @@ sub _mysqlNow() {
 sub generatePassword() {
 	my $self = shift;
 	my $length = shift;
-#	print $length."\n";
 	my @characters = qw/a b c d e f g h i j k l m n o p q r s t u v w x y z
 			    A B C D E F G H I J K L M N O P Q R S T U V W X Y Z 
 			    1 2 3 4 5 6 7 8 9 0 - =
