@@ -105,13 +105,29 @@ sub new() {
 	foreach(keys(%params)){
 		$self->{_params}->{$_} = $params{$_};
 	}
+	# Set some variables for future use:
 	$self->{version} = $VERSION;
+	# This is a hash-of-hashes we use to store the table names
 	my %_tables = &_tables;
 	$self->{tables} = \%_tables;
+	# And a hash of hashes of hashes we use to store the field names
 	my %_fields = &_fields;
 	$self->{fields} = \%_fields;
-	$self->{_doveconf} = 'doveconf 2>/dev/null';
+	# Dovecot config:
+	my @doveconf;
+	eval{
+		@doveconf = qx@doveconf 2>/dev/null@ or die "$!";
+	};
+	$self->{'_doveconf'} = \@doveconf unless($@);
 
+	# Postfix config:
+	my @postconf;
+	eval{
+		@postconf = qx@postconf 2>/dev/null@ or die "$!";
+	};
+	$self->{'_postconf'} = \@postconf unless($@);
+
+	# Here we build a DBI object using whatever DB credentials we can find:
 	my @_dbi;
 	if($self->{_params}->{mysqlconf} =~ m@/@){
 		@_dbi = _parseMysqlConfigFile($self->{_params}->{mysqlconf});
@@ -121,7 +137,6 @@ sub new() {
 		}
 		@_dbi = _parsePostfixConfigFile($self->{_params}->{maincf});
 	}	
-	
 	$self->{_params}->{dbi} = $_dbi[0];
 	$self->{_params}->{dbuser} = $_dbi[1];
 	$self->{_params}->{dbpass} = $_dbi[2];
@@ -130,17 +145,33 @@ sub new() {
 		$self->{_params}->{dbuser},
 		$self->{_params}->{dbpass}
 	);
-
-
 	if (!$self->{dbi}){
 		Carp::croak "No dbi object created";
 	}
 
-	$self->{storeCleartextPassword} = $self->{_params}->{storeCleartextPassword} || 0;
-	my @postconf;
-	eval{
-		@postconf = qx/postconf/ or die "$!";
-	};
+	
+	# And now check whether we're supposed to be storing cleartext passwords and,
+	# if so, whether we're able to:
+	$self->{storeCleartextPassword} = $self->{_params}->{storeCleartextPassword} || 1;
+	if($self->{storeCleartextPassword} == 1){
+		my $dbName = (split(/:/, $self->{'_params'}->{'dbi'}))[2];
+		my $tableName = $self->{'tables'}->{'mailbox'};
+		my $fieldName = $self->{'fields'}->{'mailbox'}->{'password_clear'};
+		my $query = "select count(*) from information_schema.COLUMNS where ";
+		   $query.= "TABLE_SCHEMA='$dbName' and TABLE_NAME='$tableName' and ";
+		   $query.= "COLUMN_NAME='$fieldName'";
+		my $dbi = $self->{'dbi'};
+		my $sth = $self->{'dbi'}->prepare($query);
+		$sth->execute;
+		my $count = ($sth->fetchrow_array())[0];
+		if($count < 1){
+			Carp::croak "storeCleartextPassword set to 1 but table '$tableName' has no field '$fieldName' to store it in";
+		}
+	}
+
+
+
+
 	$self->{mailLocation} = (reverse(grep(/\s*mail_location/, qx/$self->{_doveconf}/)))[0];
 	chomp $self->{mailLocation};
 	bless($self,$class);
@@ -672,7 +703,7 @@ sub changePassword(){
 		Carp::croak "No user passed to changePassword";
 	}
 	my $cryptedPassword = $self->cryptPassword($password);
-	$self->changeCryptedPassword($user, $cryptedPassword);
+	$self->changeCryptedPassword($user, $cryptedPassword,$password);
 	return $cryptedPassword;
 }
 
@@ -693,15 +724,20 @@ sub changeCryptedPassword(){
 		Carp::croak "No user passed to changeCryptedPassword";
 	}
 	my $cryptedPassword = shift;
-	my $password = shift;
+	my $clearPassword = shift;
 
 	my $query;
 	if($self->{storeCleartextPassword} > 0){
-		$query = "update `$self->{tables}->{mailbox}` set `$self->{fields}->{mailbox}->{password}`='$cryptedPassword', `$self->{fields}->{mailbox}->{password_clear}`='$password' where `$self->{fields}->{mailbox}->{username}`='$user'";
+		$query = "update `$self->{tables}->{mailbox}` set ";
+		$query.= "`$self->{fields}->{mailbox}->{password}`='$cryptedPassword', ";
+		$query.= "`$self->{fields}->{mailbox}->{password_clear}`='$clearPassword' ";
+		$query.= " where `$self->{fields}->{mailbox}->{username}`='$user'";
 	}else{
-		$query = "update `$self->{tables}->{mailbox}` set `$self->{fields}->{mailbox}->{password}`='$cryptedPassword' where `$self->{fields}->{mailbox}->{username}`='$user'";
+		$query = "update `$self->{tables}->{mailbox}` set ";
+		$query.= "`$self->{fields}->{mailbox}->{password}`='$cryptedPassword' ";
+		$query.= "where `$self->{fields}->{mailbox}->{username}`='$user'";
 	}
-	print $query."\n";
+#	print $query."\n";
 	my $sth = $self->{dbi}->prepare($query);
 	$sth->execute();
 
@@ -1492,6 +1528,7 @@ sub generatePassword() {
 	}
 	return $password;
 }
+
 
 =head1 CLASS VARIABLES
 
