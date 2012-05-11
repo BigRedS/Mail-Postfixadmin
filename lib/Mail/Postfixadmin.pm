@@ -224,23 +224,44 @@ sub new() {
 #	return $numUsers;
 #}
 #
+
 =head3 getDomains() 
 
-Returns a list of domains on the system.
+Returns an array of domains on the system. This is all domains for
+which the system will accept mail, including aliases.
+
 =cut
 
-##TODO: getDomains to accept regex
 sub getDomains(){
 	my $self = shift;
 	my $regex = shift;
-	my $regexOpts = shift;
 	my @results;
 	@results = $self->_dbSelect(
 		table => 'domain',
 		fields => [ "domain" ],
 	);
+	if($regex){
+		@results = grep (/$regex/, @results);
+	}
 	my @domains = map ($_->{'domain'}, @results);
 	return @domains;
+}
+
+=head3 getDomainsAndAliases()
+
+Returns a hash describing all domains on the system. Keys are domains
+and aliases, where present, are targets.
+=cut
+
+sub getDomainsAndAliases(){
+	my $self = shift;
+	my $regex = shift;
+	my @domains = $self->getDomains($regex);
+	# prepend a null string so that we definitely get a domain every odd-
+	# numbered element of the list map returns, else the hash looks a bit
+	# weird
+	my %domainsWithAliases = map {$_ => "".$self->getAliasDomainTarget($_)} @domains;
+	return %domainsWithAliases;
 }
 
 =head3 getUsers()
@@ -255,6 +276,24 @@ sub getUsers(){
 	my (@users,@aliases);
 	@users = $self->getRealUsers($domain), $self->getAliasUsers($domain);
 	return @users;
+}
+
+=head3  getUsersAndAliases()
+
+Returns a hash describing all domains on the system. Keys are domains
+and aliases, where present, are targets.
+
+=cut
+
+sub getUsersAndAliases(){
+	my $self = shift;
+	my $regex = shift;
+	my @users = $self->getUsers($regex);
+	# prepend a null string so that we definitely get a domain every odd-
+	# numbered element of the list map returns, else the hash looks a bit
+	# weird
+	my %usersWithAliases = map {$_ => "".$self->getAliasUserTarget($_)} @users;
+	return %usersWithAliases;
 }
 
 =head3 getRealUsers() 
@@ -278,9 +317,9 @@ sub getRealUsers(){
 		);
 	}else{
 		@results = $self->_dbSelect(
-			table  => 'mailbox',
-			fields => [ 'username' ],
-			equals => [ 'goto'. ''],
+			table  => 'alias',
+			fields => [ 'address' ],
+			equals => [ 'goto', ''],
 		);
 	}
 	my @users;
@@ -328,6 +367,7 @@ also serving as a sort-of search) if the domain does exist, empty otherwise.
 sub domainExists(){
 	my $self = shift;
 	my $domain = shift;
+	my $regex = shift;
 	if ($domain eq ''){
 		Carp::croak "No domain passed to domainExists";
 	}
@@ -456,9 +496,7 @@ sub getAliasDomainTarget(){
 
 =head3 userIsAlias()
 
-Checks whether a user is an alias to another address. Returns the number of 
-rows in which the user is configured as an alias, *not* the amount of target 
-addresses (see C<getUserTargets> for that), undef if it's not an alias.
+Checks whether a user is an alias to another address.
 
 =cut
 
