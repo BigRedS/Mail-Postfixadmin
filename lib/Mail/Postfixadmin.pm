@@ -1018,7 +1018,7 @@ In full:
 
  $v->createAliasUser(
 		source   => 'someone@example.org',
-		target	 => [qw/target@example.org, target@example.net/],
+		target	 => "target@example.org, target@example.net",
 		domain	 => 'example.org',
 		modified => $v->now;
 		created	 => $v->now;
