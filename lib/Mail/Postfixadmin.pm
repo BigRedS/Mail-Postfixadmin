@@ -230,6 +230,9 @@ sub new() {
 Returns an array of domains on the system. This is all domains for
 which the system will accept mail, including aliases.
 
+You can pass a pattern as the argument to get only domains matching 
+that pattern.
+
 =cut
 
 sub getDomains(){
@@ -251,6 +254,9 @@ sub getDomains(){
 
 Returns a hash describing all domains on the system. Keys are domains
 and aliases, where present, are targets.
+
+As with getDomains, accepts a regex pattern as an argument.
+
 =cut
 
 sub getDomainsAndAliases(){
@@ -268,6 +274,8 @@ sub getDomainsAndAliases(){
 
 Returns a list of all users. If a domain is passed, only returns users on that domain.
 
+You can pass a pattern as the argument to get only users matchin that pattern.
+
 =cut
 
 sub getUsers(){
@@ -282,6 +290,8 @@ sub getUsers(){
 
 Returns a hash describing all domains on the system. Keys are domains
 and aliases, where present, are targets.
+
+as with C<getUsers>, accepts a pattern to match.
 
 =cut
 
