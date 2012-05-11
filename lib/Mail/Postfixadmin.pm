@@ -80,7 +80,7 @@ file containing MySQL configuration, which is then itself parsed to get the
 connection info. This is still somewhat crude and should be made more robust 
 and flexible.
 
-If C<main.cf> is passed the C<dbi>, C<dbuser> and C<dbpass> values are ignored 
+If C<main.cf> is passed, the C<dbi>, C<dbuser> and C<dbpass> values are ignored 
 and overwritten by data found in the files. C<main.cf> is deemed to have been 
 'passed' if its value contains a forward-slash ('C</>').
 
@@ -151,48 +151,48 @@ sub new() {
 
 =head2 User and domain information
 
-=head3 numDomains()
-
-Returns the number of domains configured on the server. If you'd like only 
-those that match some pattern, you should use C<getDomains()> and measure the 
-size of the returned list.
-
-=cut
-
-
-sub numDomains(){
-	my $self = shift;
-	my $query = "select count(*) from $self->{tables}->{domain}";
-	my $numDomains = ($self->{dbi}->selectrow_array($query))[0];
-	$numDomains--;	# since there's an 'ALL' domain in the db
-	$self->{_numDomains} = $numDomains;
-	$self->{infostr} = $query;
-	return $self->{_numDomains};
-}
-
-
-=head3 numUsers()
-
-Returns the number of configured users. If a domain is passed as an argument it 
-will only return users configured on that domain. If not, it will return a 
-count of all users on the system
-
-=cut
-
-sub numUsers(){
-	my $self = shift;
-	my $query;
-	my $domain = shift;
-	if ($domain){
-		$query = "select count(*) from `$self->{tables}->{mailbox}` where $self->{fields}->{mailbox}->{domain} = \'$domain}\'"
-	}else{
-		$query = "select count(*) from `$self->{tables}->{mailbox}`";
-	}
-	my $numUsers = ($self->{dbi}->selectrow_array($query))[0];
-	$self->{infostr} = $query;
-	return $numUsers;
-}
-
+#=head3 numDomains()
+#
+#Returns the number of domains configured on the server. If you'd like only 
+#those that match some pattern, you should use C<getDomains()> and measure the 
+#size of the returned list.
+#
+#=cut
+#
+#
+#sub numDomains(){
+#	my $self = shift;
+#	my $query = "select count(*) from $self->{tables}->{domain}";
+#	my $numDomains = ($self->{dbi}->selectrow_array($query))[0];
+#	$numDomains--;	# since there's an 'ALL' domain in the db
+#	$self->{_numDomains} = $numDomains;
+#	$self->{infostr} = $query;
+#	return $self->{_numDomains};
+#}
+#
+#
+#=head3 numUsers()
+#
+#Returns the number of configured users. If a domain is passed as an argument it 
+#will only return users configured on that domain. If not, it will return a 
+#count of all users on the system
+#
+#=cut
+#
+#sub numUsers(){
+#	my $self = shift;
+#	my $query;
+#	my $domain = shift;
+#	if ($domain){
+#		$query = "select count(*) from `$self->{tables}->{mailbox}` where $self->{fields}->{mailbox}->{domain} = \'$domain}\'"
+#	}else{
+#		$query = "select count(*) from `$self->{tables}->{mailbox}`";
+#	}
+#	my $numUsers = ($self->{dbi}->selectrow_array($query))[0];
+#	$self->{infostr} = $query;
+#	return $numUsers;
+#}
+#
 =head3 getDomains() 
 
 Returns a list of domains on the system.
@@ -289,9 +289,8 @@ sub getAliasUsers() {
 
 =head3 domainExists() and userExists()
 
-Check for the existence of a user or a domain. Returns the number found (in 
-anticipation of also serving as a sort-of search) if the domain or user does 
-exist, empty otherwise.
+Check for the existence of a user. Returns the number found (in anticipation of 
+also serving as a sort-of search) if the domain does exist, empty otherwise.
 
 =cut
 
@@ -315,6 +314,13 @@ sub domainExists(){
 		return;
 	}
 }
+
+=head3 userExists()
+
+Check for the existence of a user. Returns the number found (in anticipation of 
+also serving as a sort-of search) if the user does exist, empty otherwise.
+
+=cut 
 
 sub userExists(){
 	my $self = shift;
@@ -391,31 +397,31 @@ sub getAliasDomainTarget(){
 }
 		
 
-=head3 domainIsTarget()
-
-Checks whether the domain passed is the target of an alias domain. Returns the 
-number of aliases that have the set domain as their targets, undef if none are 
-found.
-
-=cut
-
-sub domainIsTarget(){
-	my $self = shift;
-	my $domain = shift;
-	if ($domain eq ''){
-		Carp::croak "No domain passed to domainIstarget";
-	}
-	my $query = "select count(*) from $self->{tables}->{alias_domain} where $self->{fields}->{alias_domain}->{target_domain} = '$domain'";
-	my $sth = $self->{dbi}->prepare($query);
-	$sth->execute;
-	my $count = ($sth->fetchrow_array())[0];
-	$self->{infostr} = $query;
-	if ($count > 0){
-		return $count;
-	}else{
-		return;
-	}
-}
+#=head3 domainIsTarget()
+#
+#Checks whether the domain passed is the target of an alias domain. Returns the 
+#number of aliases that have the set domain as their targets, undef if none are 
+#found.
+#
+#=cut
+#
+#sub domainIsTarget(){
+#	my $self = shift;
+#	my $domain = shift;
+#	if ($domain eq ''){
+#		Carp::croak "No domain passed to domainIstarget";
+#	}
+#	my $query = "select count(*) from $self->{tables}->{alias_domain} where $self->{fields}->{alias_domain}->{target_domain} = '$domain'";
+#	my $sth = $self->{dbi}->prepare($query);
+#	$sth->execute;
+#	my $count = ($sth->fetchrow_array())[0];
+#	$self->{infostr} = $query;
+#	if ($count > 0){
+#		return $count;
+#	}else{
+#		return;
+#	}
+#}
 
 =head3 userIsAlias()
 
@@ -441,83 +447,75 @@ sub userIsAlias{
 	}
 }
 
-=head3 userIsTarget()
+#=head3 userIsTarget()
+#
+#Checks whether the passed user is a target for an alias user. Returns the number 
+#of rows in which the user is configured as an alias (which should be the number 
+#of unique addresses, but may not be. Use C<getUserAliases()> for a more 
+#accurate count), undef if it's not a target.
+#
+#=cut
+#
+#sub userIsTarget{
+#	my $self = shift;
+#	my $user = shift;
+#	if ($user eq ''){ Carp::croak "No user passed to userIsTarget";}
+#	my @results = $self->_dbSelect(
+#		count => 'true',
+#		like  => ['goto', "%$user%"],
+#		table => 'alias'
+#	);
+#	my %row = %{$results[0]};
+#	my $count = $row{'count(*)'};
+#	if ($count > 0){
+#		return $count;
+#	}else{
+#		return;
+#	}
+#}
 
-Checks whether the passed user is a target for an alias user. Returns the number 
-of rows in which the user is configured as an alias (which should be the number 
-of unique addresses, but may not be. Use C<getUserAliases()> for a more 
-accurate count), undef if it's not a target.
-
-=cut
-
-sub userIsTarget{
-	my $self = shift;
-	my $user = shift;
-	if ($user eq ''){ Carp::croak "No user passed to userIsTarget";}
-	my @results = $self->_dbSelect(
-		count => 'true',
-		like  => ['goto', "%$user%"],
-		table => 'alias'
-	);
-	my %row = %{$results[0]};
-	my $count = $row{'count(*)'};
-	if ($count > 0){
-		return $count;
-	}else{
-		return;
-	}
-}
-
-=head3 getUserAliases()
-
-Returns a list of aliases for which the passed user is a target.
-
- my @aliasAddresses = getUserAliases($address);
-
-=cut
-
-sub getUserAliases{
-	my $self = shift;
-	my $user = shift;
-	if ($user eq ''){ Carp::croak "No user passed to getUserAliases";}
-	my $query = "select $self->{fields}->{alias}->{address} from $self->{tables}->{alias} where $self->{fields}->{alias}->{goto} like '%user%'";
-	my $sth = $self->{dbi}->prepare($query);
-	$sth->execute;
-	my @addresses;
-	while(my @row = $sth->fetchrow_array()){
-		push(@addresses, $row[0]);
-	}
-	return @addresses;
-
-}
-
-=head3 getAliasUserTargetArray()
-
-Returns an array of addresses for which the current user is an alias.
-  
- my @targets = $p->getAliasUserTargets($user);
-
-=cut 
-
-sub getAliasUserTargets{
-	my $self = shift;
-	my $user = shift;
-	if ($user eq ''){ Carp::croak "No user passed to getAliasUserTargetArray";}
-
-	my @gotos = $self->_dbSelect(
-		table	=> 'alias',
-		fields	=> ['goto'],
-		equals	=> [ 'address', $user ],
-	);
-#	my $query = "select $self->{fields}->{alias}->{goto} from $self->{tables}->{alias} where $self->{fields}->{alias}->{address} like '%$user%'";
+#=head3 getUserAliases()
+#
+#Returns a list of aliases for which the passed user is a target.
+#
+# my @aliasAddresses = getUserAliases($address);
+#
+#=cut
+#
+#sub getUserAliases{
+#	my $self = shift;
+#	my $user = shift;
+#	if ($user eq ''){ Carp::croak "No user passed to getUserAliases";}
+#	my $query = "select $self->{fields}->{alias}->{address} from $self->{tables}->{alias} where $self->{fields}->{alias}->{goto} like '%user%'";
 #	my $sth = $self->{dbi}->prepare($query);
 #	$sth->execute;
-#	my @gotos;
+#	my @addresses;
 #	while(my @row = $sth->fetchrow_array()){
-#		push(@gotos,$row[0]);
+#		push(@addresses, $row[0]);
 #	}
-	return @gotos;
-}
+#	return @addresses;
+#}
+
+#=head3 getAliasUserTargetArray()
+#
+#Returns an array of addresses for which the current user is an alias.
+#  
+# my @targets = $p->getAliasUserTargets($user);
+#
+#=cut 
+#
+#sub getAliasUserTargets{
+#	my $self = shift;
+#	my $user = shift;
+#	if ($user eq ''){ Carp::croak "No user passed to getAliasUserTargetArray";}
+#
+#	my @gotos = $self->_dbSelect(
+#		table	=> 'alias',
+#		fields	=> ['goto'],
+#		equals	=> [ 'address', $user ],
+#	);
+#	return @gotos;
+#}
 
 =head3 getUserInfo()
 
@@ -531,9 +529,8 @@ Returns a hash containing info about the user:
 	maildir		The path to the maildir *relative to the maildir root 
 			configured in Postfix/Dovecot*
 	active		Whether or not the user is active
-	created		Creation data
+	created		Creation date
 	modified	Last modified data
-
 
 Returns undef if the user doesn't exist.
 
@@ -551,12 +548,8 @@ sub getUserInfo(){
 		fields => ['*'],
 		equals => ['username', $user]
 	);
-#	my %return = %{$results[0]};
-#	return %return;
 	return @results;
 }
-
-
 
 =head3 getDomainInfo()
 
@@ -568,11 +561,11 @@ Returns a hash containing info about a domain. Keys passed:
 	transport	Postfix transport (usually virtual)
 	active		Whether the domain is active or not
 	backupmx0	Whether this is a  backup MX for the domain
-	mailboxes	Array of mailbox usernames associated with the domain 
+	mailboxes	Array of mailbox names associated with the domain 
 			(note: the full username, not just the local part)
 	modified	last modified date 
 	num_mailboxes   Count of the mailboxes (effectively, the length of the 
-			array in mailboxes)
+			array in `mailboxes`)
 	created		Creation data
 	aliases		Alias quota for the domain
 	maxquota	Mailbox quota for teh domain
@@ -618,30 +611,30 @@ sub getDomainInfo(){
 	return %return;
 }
 
-=head3 getTargetAliases()
-
-Returns a list of aliases for the target currently set as the domain. Returns 
-false if the domain is not listed as a target, an empty list if the domain is 
-listed as a target, but the alias is NULL.
-
-=cut
-
-sub getTargetAliases{
-	my $self = shift;
-	my $domain = shift;
-	if ($domain eq ''){ Carp::croak "No domain passed to getTargetAliases"; }
-	my @results = $self->_dbSelect(
-		table  => "alias_domain",
-		fields => ["alias_domain"],
-		equals => ['target_domain', $domain],
-	);
-	my @aliases;
-	foreach my $r (@results){
-		my %row = %{$r};
-		push (@aliases, $row{'alias_domain'});
-	}
-	return @aliases;
-}
+#=head3 getTargetAliases()
+#
+#Returns a list of aliases for the target currently set as the domain. Returns 
+#false if the domain is not listed as a target, an empty list if the domain is 
+#listed as a target, but the alias is NULL.
+#
+#=cut
+#
+#sub getTargetAliases{
+#	my $self = shift;
+#	my $domain = shift;
+#	if ($domain eq ''){ Carp::croak "No domain passed to getTargetAliases"; }
+#	my @results = $self->_dbSelect(
+#		table  => "alias_domain",
+#		fields => ["alias_domain"],
+#		equals => ['target_domain', $domain],
+#	);
+#	my @aliases;
+#	foreach my $r (@results){
+#		my %row = %{$r};
+#		push (@aliases, $row{'alias_domain'});
+#	}
+#	return @aliases;
+#}
 
 
 =head2 Passwords
@@ -795,7 +788,7 @@ sub createDomain(){
 =head3 createUser()
 
 Expects to be passed a hash of options, with the keys being the same as those 
-output by C<etUserInfo()>. None are necessary except C<username>.
+output by C<getUserInfo()>. None are necessary except C<username>.
 
 If both C<password_plain> and <password_crypt> are in the passed hash, 
 C<password_crypt> will be used. If only password_plain is passed it will be 
@@ -815,10 +808,10 @@ Defaults are mostly sane where values aren't explicitly passed:
  active		MySQL's default
 
 
-On success, returns a a has describing the user. You can inspect this to see 
+On success, returns a hash describing the user. You can inspect this to see 
 which defaults were set if you like.
 
-Wont alter existing users. Instead, it returns '2' rather than a hash.
+This will not alter existing users. Instead, it returns '2' rather than a hash.
 
 =cut
 
@@ -894,9 +887,9 @@ Creates an alias domain:
  	alias  => 'alias.com'
  );
 
-will cause all mail sent to something@alias.com to be forwarded to 
+will cause all mail sent to something@alias.com to be delivered to 
 something@target.com. Notably, it does not check that the domain is not already
-aliased somewhere, so you can end up aliasing one domain to two targets which 
+aliased elsewhere, so you can end up aliasing one domain to two targets which 
 is probably not what you want.
 
 You can pass three other keys in the hash, though only C<target> and c<alias> 
@@ -970,7 +963,7 @@ Creates an alias user:
  	alias  => 'alias@example.net
  );
 
-will cause all mail sent to alias@example.com to be forwarded to target@example.net. 
+will cause all mail sent to alias@example.com to be delivered to target@example.net. 
 
 You may forward to more than one address by passing a comma-separated string:
 
@@ -980,11 +973,10 @@ You may forward to more than one address by passing a comma-separated string:
  );
 
 For some reason, the domain is stored separately in the db. If you pass a 
-C<domain> key in the hash, this is used. If not, a domain set with setDomain(); 
-is checked for and if that's not set a regex is applied to the username 
+C<domain> key in the hash, this is used. If not a regex is applied to the username 
 ( C</\@(.+)$/> ). If that doesn't match, it Croaks.
 
-You can pass three other keys in the hash, though only C<target> and C<alias> are required:
+You may pass three other keys in the hash, though only C<target> and C<alias> are required:
 
  created   'created' date. Is passed verbatim to the db so should be in a format it understands.
  modified  Ditto but for the modified date
@@ -1109,9 +1101,6 @@ sub removeUser(){
 Removes the passed domain,  and all of its attached users (using C<removeUser()>).  
 
 Returns 1 on successful removal of a user, 2 if the user didn't exist to start with.
-
-C<infostr> is set to the query run only if the domain exists - if the domain doesn't exist no query is run and C<infostr> is set to 
-"domain doesn't exist (<domain>)";
 
 =cut
 
