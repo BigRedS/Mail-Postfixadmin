@@ -190,6 +190,10 @@ sub new() {
 			}
 			$gpg->gpgbin($self->{'_gpgbinary'});
 			$self->{'gpgsecretkey'} = $self->{'_params'}->{'gpgSecretKey'} || Carp::croak "storeGPGpassword set but gpgSecretKey not set";
+			unless($gpg->keydb($self->{'_gpgkeyholder'})){
+				Carp::croak "No key owned by '$self->{'_gpgkeyholder'}' in db";
+			}
+
 			$self->{'gpg'} = $gpg;
 		}else{
 			Carp::croak "storeGPGPassword is set non-zero but table '$tableName' has no field '$fieldName' to store GPG-encrypted passwords in";
