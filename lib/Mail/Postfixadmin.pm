@@ -155,21 +155,47 @@ sub new() {
 	
 	# And now check whether we're supposed to be storing cleartext passwords and,
 	# if so, whether we're able to:
-	$self->{storeCleartextPassword} = $self->{_params}->{storeCleartextPassword} || 1;
+	$self->{storeCleartextPassword} = $self->{'_params'}->{'storeCleartextPassword'} || 0;
 	if($self->{storeCleartextPassword} == 1){
 		my $dbName = (split(/:/, $self->{'_params'}->{'dbi'}))[2];
 		my $tableName = $self->{'tables'}->{'mailbox'};
 		my $fieldName = $self->{'fields'}->{'mailbox'}->{'password_clear'};
-		my $query = "select count(*) from information_schema.COLUMNS where ";
-		   $query.= "TABLE_SCHEMA='$dbName' and TABLE_NAME='$tableName' and ";
-		   $query.= "COLUMN_NAME='$fieldName'";
-		my $dbi = $self->{'dbi'};
-		my $sth = $self->{'dbi'}->prepare($query);
-		$sth->execute;
-		my $count = ($sth->fetchrow_array())[0];
-		if($count < 1){
-			Carp::croak "storeCleartextPassword set to 1 but table '$tableName' has no field '$fieldName' to store it in";
+		unless(_fieldExists($self->{'dbi'}, $dbName, $tableName, $fieldName)){
+			Carp::croak "storeCleartextPassword set to non-zero but table '$tableName' has no field '$fieldName' to store cleartext passwords in";
 		}
+	}
+
+	# And the same for GPG passwords
+	$self->{'storeGPGPassword'} = $self->{'_params'}->{'storeGPGPassword'} || 0;
+	if ($self->{'storeGPGPassword'} > 0){
+		my $dbName = (split(/:/, $self->{'_params'}->{'dbi'}))[2];
+		my $tableName = $self->{'tables'}->{'mailbox'};
+		my $fieldName = $self->{'fields'}->{'mailbox'}->{'password_gpg'};
+		if (_fieldExists($self->{'dbi'}, $dbName, $tableName, $fieldName)){
+			# If we are supposed to be storing GPG passwords, we need the
+			# appropriate module.
+			if (eval {require Crypt::GPG}){
+				Crypt::GPG->import();
+			}else{
+				Carp::croak "Error require()ing Crypt::GPG to allow support for storeGPGPassword:\n$@";
+			}
+			my $gpg = new Crypt::GPG;
+			$self->{'_gpgkeyholder'} = $self->{'_params'}->{'gpgKeyHolder'};
+			if ($self->{'_gpgkeyholder'} !~ /.+/){
+				Carp::croak "GPG support requires a value for gpgKeyHolder be passed to the constructor";
+			}
+			$self->{'_gpgbinary'} = $self->{'_params'}->{'gpgBinary'} || '/usr/bin/gpg';
+			unless( -x $self->{'_gpgbinary'}){
+				Carp::croak "GPG binary at '$self->{'_gpgbinary'}' either non-existant or not-executable";
+			}
+			$gpg->gpgbin($self->{'_gpgbinary'});
+			$self->{'gpgsecretkey'} = $self->{'_params'}->{'gpgSecretKey'} || Carp::croak "storeGPGpassword set but gpgSecretKey not set";
+			$self->{'gpg'} = $gpg;
+		}else{
+			Carp::croak "storeGPGPassword is set non-zero but table '$tableName' has no field '$fieldName' to store GPG-encrypted passwords in";
+		}
+
+
 	}
 
 #	$self->{mailLocation} = (reverse(grep(/\s*mail_location/, qx/$self->{_doveconf}/)))[0];
@@ -177,6 +203,9 @@ sub new() {
 	bless($self,$class);
 	return $self;
 }
+
+
+
 
 =head1 METHODS
 
@@ -733,6 +762,23 @@ sub cryptPassword(){
 	return $cryptedPassword;
 }
 
+sub cryptPasswordGPG(){
+	my $self = shift;
+	my $password = shift;
+	my $gpg = $self->{'gpg'};
+	$gpg->passphrase('');
+	return join("\n", $gpg->encrypt($password, $self->{'_gpgkeyholder'}));
+}
+
+sub decryptPasswordGPG(){
+	my $self = shift;
+	my $ciphertext = shift;
+	my $gpg = $self->{'gpg'};
+	$gpg->secretkey($self->{'gpgsecretkey'});
+	my ($plaintext, $signature) = $gpg->verify($ciphertext);
+	return $plaintext, "\n", $signature;
+}
+
 =head3 changePassword() 
 
 Changes the password of a user. The user should be set with C<setUser> (or 
@@ -751,7 +797,7 @@ sub changePassword(){
 		Carp::croak "No user passed to changePassword";
 	}
 	my $cryptedPassword = $self->cryptPassword($password);
-	$self->changeCryptedPassword($user, $cryptedPassword,$password);
+	$self->changeCryptedPassword($user,$cryptedPassword,$password);
 	return $cryptedPassword;
 }
 
@@ -774,20 +820,20 @@ sub changeCryptedPassword(){
 	my $cryptedPassword = shift;
 	my $clearPassword = shift;
 
-	my $query;
-	if($self->{storeCleartextPassword} > 0){
-		$query = "update `$self->{tables}->{mailbox}` set ";
-		$query.= "`$self->{fields}->{mailbox}->{password}`='$cryptedPassword', ";
-		$query.= "`$self->{fields}->{mailbox}->{password_clear}`='$clearPassword' ";
-		$query.= " where `$self->{fields}->{mailbox}->{username}`='$user'";
-	}else{
-		$query = "update `$self->{tables}->{mailbox}` set ";
-		$query.= "`$self->{fields}->{mailbox}->{password}`='$cryptedPassword' ";
-		$query.= "where `$self->{fields}->{mailbox}->{username}`='$user'";
+	my $query = "update $self->{'tables'}->{'mailbox'} set ";
+	$query.="`$self->{'fields'}->{'mailbox'}->{'password'}`= '$cryptedPassword'";
+	if($self->{'storeCleartextPassword'} > 0){
+		$query.= ", `$self->{'fields'}->{'mailbox'}->{'password_clear'}` = '$clearPassword'";
 	}
-#	print $query."\n";
-	my $sth = $self->{dbi}->prepare($query);
-	$sth->execute();
+	if($self->{'storeGPGPassword'} > 0){
+		my $gpgPassword = $self->cryptPasswordGPG($clearPassword);
+		$query.= ", `$self->{'fields'}->{'mailbox'}->{'password_gpg'}` = '$gpgPassword'";
+	}
+	$query.="where `$self->{'fields'}->{'mailbox'}->{'username'}` = '$user'";
+
+	print $query."\n";
+#	my $sth = $self->{dbi}->prepare($query);
+#	$sth->execute();
 
 	return $cryptedPassword;
 }
@@ -967,7 +1013,6 @@ Creates an alias domain:
  	alias  => 'alias.com'
  );
 
-will cause all mail sent to something@alias.com to be delivered to 
 something@target.com. Notably, it does not check that the domain is not already
 aliased elsewhere, so you can end up aliasing one domain to two targets which 
 is probably not what you want.
@@ -1068,6 +1113,7 @@ In full:
 		source   => 'someone@example.org',
 		target	 => "target@example.org, target@example.net",
 		domain	 => 'example.org',
+will cause all mail sent to something@alias.com to be delivered to 
 		modified => $v->now;
 		created	 => $v->now;
 		active   => 1
@@ -1467,7 +1513,8 @@ sub _fields(){
 				'created'	=> 'created',
 				'modified'	=> 'modified',
 				'active'	=> 'active',
-				'password_clear' => 'password_clear'
+				'password_clear'=> 'password_clear',
+				'password_gpg'  => 'password_gpg',
 	};
 	$fields{'domain_admins'} = {
 	                        'domain'        => 'domain',
@@ -1577,6 +1624,18 @@ sub generatePassword() {
 	return $password;
 }
 
+# Check whether a field exists in the db. Must exist in the _field hash.
+sub _fieldExists() {
+	my ($dbi,$dbName,$tableName,$fieldName) = @_;
+	my $query = "select count(*) from information_schema.COLUMNS where ";
+	   $query.= "TABLE_SCHEMA='$dbName' and TABLE_NAME='$tableName' and ";
+	   $query.= "COLUMN_NAME='$fieldName'";
+	my $sth = $dbi->prepare($query);
+	$sth->execute;
+	my $count = ($sth->fetchrow_array())[0];
+	return($count) if ($count > 0);
+	return;
+}
 
 =head1 CLASS VARIABLES
 
