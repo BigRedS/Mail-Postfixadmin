@@ -21,11 +21,9 @@ Mail::Postfixadmin - Interferes with a Postfix/MySQL virtual mailbox system
 
 =head1 SYNOPSIS
 
-
-Mail::Postfixadmin is an attempt to provide a bunch of neat functions that wrap
+Mail::Postfixadmin is an attempt to provide a bunch of functions that wrap
 around the tedious SQL involved in interfering with a Postfix/Dovecot/MySQL 
-virtual mailbox mail system. It can probably be used on others so long as the 
-DB schema is similar enough.
+virtual mailbox mail system.
 
 It's _very_much_ still in development. All sorts of things will change :) This 
 is currently a todo list as much as it is documentation of the module.
@@ -36,66 +34,103 @@ as objects. At best, it's an object-considering means of configuring it.
 
         use Mail::Postfixadmin;
 
-	my $v = Mail::Postfixadmin->new();
-	$v->setDomain("example.org");
-	$vdescription => 'an example',
-		num_mailboxes => '0'
+	my $p = Mail::Postfixadmin->new();
+	$p->createDomain(
+		domain        => 'example.org',
+	        description   => 'an example',
+		num_mailboxes => '0',
 	);
 
-	$v->setUser("foo@example.org");
-	$v->createUser(
+	$p->createUser(
+		ussername      => 'avi@example.com',
 		password_plain => 'password',
-		name => 'alice'
+		name           => 'avi',
 	);
 
-	my %dominfo = $v->getDomainInfo();
+	my %dominfo = $p->getDomainInfo();
 
-	my %userinfo = $v->getUserInfo();
+	my %userinfo = $p->getUserInfo();
 
-	$v->changePassword('complexpass');
+	$p->changePassword('avi@example.com', 'complexpass');
 
 
 =head1 CONSTRUCTOR AND STARTUP
 
-=head3 new()
+=head2 new()
 
 Creates and returns a new Mail::Postfixadmin object. You want to provide some 
-way of determining how to connect to the database. There are two ways:
+way of determining how to connect to the database; there are three ways, listed 
+in order of precedence (i.e. the third overrules the second which overrules the
+first):
 
- my $v = Mail::Postfixadmin->new(
+Firstly, you may pass nothing to the constructor, and have it parse 
+/etc/postfix/main.cf:
+
+  my $v = Mail::Postfixadmin->new();
+
+Secondly, you may pass C<dbi>, C<dbuser> and C<dbpass> which are essentially the
+three arguments to a C<DBI-E<gt>connect> (they are used for exactly this):
+
+  my $v = Mail::Postfixadmin->new(
          dbi	=> 'DBI:mysql:dbname',
 	 dbuser	=> 'username',
 	 dbpass => 'password'
- )
+  );
 
-Which essentially is the three arguments to a DBI->connect. Alternatively, you 
-can pass the location of postfix's C<main.cf> file:
+Thirdly, you may pass a path to main.cf to the constructor, and have it parse 
+that file to find a file specifying the file in which to find Postfix's MySQL 
+configuration and then parse *that* file to get the credentials:
 
  my $v = Mail::Postfixadmin->new(
  	 maincf	=> '/etc/postfix/main.cf'
- )
+ );
 
-In which case the file passed as an argument is parsed for a line specifying a 
-file containing MySQL configuration, which is then itself parsed to get the 
-connection info. This is still somewhat crude and should be made more robust 
-and flexible.
 
 If C<main.cf> is passed, the C<dbi>, C<dbuser> and C<dbpass> values are ignored 
 and overwritten by data found in the files. C<main.cf> is deemed to have been 
 'passed' if its value contains a forward-slash ('C</>').
 
-=cut 
+=head3 Password storage
 
-##You may also instruct the object to store plain text passwords by setting 
-###'storeClearTextPassword' to a value greater than 0:
-#
-#my $v = Mail::Postfixadmin->new(
-#        storeCleartextPassword => 1, 
-#); 
-#
-#Currently, there's no checking; the plan is that this will be set automagically 
-#based on the presence of a field to store the cleartext password in.
+By default, passwords are crypted with Crypt::PasswdMD5 and stored in the 
+C<password> field of the relevant table. Optionally, you may also have them 
+stored in cleartext and/or PGP-encrypted forms.
 
+To do this you need to set the C<storeCleartextPassword> and/or 
+C<storeGPGPassword> keys to a non-zero value and make sure you have the correct
+fields in your DB; cleartext passwords need a C<password_clear> field and GPG 
+ones a C<password_gpg> field in the C<mailbox> table. GPG passwords also require 
+an appropriately configured GPG keyring.
+
+=head4 GPG Passwords
+
+There's a number of other keys for GPG password storage:
+
+  gpgSecretKey  The ID of the secret key.
+  gpgRecipient  One of the ID fields of the public key.
+  gpgBinary	Optional, path to the GPG binary. Defaults to /usr/bin/gpg
+  gpgPassphrase Passphrase for the key(s).
+
+A complete example might read:
+
+  my $v = Mail::Postfixadmin->new(
+        storeGPGPassword => 1,
+	gpgBinary     => '/usr/local/bin/gpg',
+        gpgSecretKey  => '102FC956',
+        gpgRecipient  => 'postfixadmin@avi.co',
+        gpgPassphrase => 'Ue5gi2sei',
+  );
+
+Each of these appear as attributes of the object with the same name so you can, 
+for example, change the key used later on with:
+
+  $p->gpgSecretKey("102FC958");
+
+
+);
+
+
+=cut
 
 
 sub new() {
@@ -180,18 +215,18 @@ sub new() {
 				Carp::croak "Error require()ing Crypt::GPG to allow support for storeGPGPassword:\n$@";
 			}
 			my $gpg = new Crypt::GPG;
-			$self->{'_gpgkeyholder'} = $self->{'_params'}->{'gpgKeyHolder'};
-			if ($self->{'_gpgkeyholder'} !~ /.+/){
-				Carp::croak "GPG support requires a value for gpgKeyHolder be passed to the constructor";
+			$self->{'gpgRecipient'} = $self->{'_params'}->{'gpgRecipient'};
+			if ($self->{'gpgRecipient'} !~ /.+/){
+				Carp::croak "GPG support requires a value for gpgRecipient be passed to the constructor";
 			}
-			$self->{'_gpgbinary'} = $self->{'_params'}->{'gpgBinary'} || '/usr/bin/gpg';
-			unless( -x $self->{'_gpgbinary'}){
+			$self->{'_gpgBinary'} = $self->{'_params'}->{'gpgBinary'} || '/usr/bin/gpg';
+			unless( -x $self->{'_gpgBinary'}){
 				Carp::croak "GPG binary at '$self->{'_gpgbinary'}' either non-existant or not-executable";
 			}
-			$gpg->gpgbin($self->{'_gpgbinary'});
-			$self->{'gpgsecretkey'} = $self->{'_params'}->{'gpgSecretKey'} || Carp::croak "storeGPGpassword set but gpgSecretKey not set";
-			unless($gpg->keydb($self->{'_gpgkeyholder'})){
-				Carp::croak "No key owned by '$self->{'_gpgkeyholder'}' in db";
+			$gpg->gpgbin($self->{'_gpgBinary'});
+			$self->{'gpgSecretKey'} = $self->{'_params'}->{'gpgSecretKey'} || Carp::croak "storeGPGpassword set but gpgSecretKey not set";
+			unless($gpg->keydb($self->{'gpgRecipient'})){
+				Carp::croak "No key with identifier '$self->{'gpgRecipient'}' in db";
 			}
 
 			$self->{'gpg'} = $gpg;
@@ -210,8 +245,10 @@ sub new() {
 
 =head1 METHODS
 
-=head2 User and domain information
+=cut 
 
+#=head2 User and domain information
+#
 #=head3 numDomains()
 #
 #Returns the number of domains configured on the server. If you'd like only 
@@ -261,7 +298,9 @@ Returns an array of domains on the system. This is all domains for
 which the system will accept mail, including aliases.
 
 You can pass a pattern as the argument to get only domains matching 
-that pattern.
+that pattern:
+
+  @domains = $getDomains('com$');
 
 =cut
 
@@ -282,10 +321,19 @@ sub getDomains(){
 
 =head3 getDomainsAndAliases()
 
-Returns a hash describing all domains on the system. Keys are domains
-and aliases, where present, are targets.
+Returns a hash describing all domains on the system. Keys are domain names
+and values are the domain for which the key is an alias, where appropirate.
 
 As with getDomains, accepts a regex pattern as an argument.
+
+  %domains = getDomainsAndAliases('org$');
+  foreach(keys(%domains)){
+	if($domains{$_} =~ /.+/){
+		print "$_ is an alias of $domains{$_}\n";
+	}else{
+		print "$_ is a real domain" unless $domains{$_};
+	}
+  }
 
 =cut
 
@@ -306,6 +354,8 @@ Returns a list of all users. If a domain is passed, only returns users on that d
 
 You can pass a pattern as the argument to get only users matchin that pattern.
 
+  @users = getUsers('example.org');
+
 =cut
 
 sub getUsers(){
@@ -318,11 +368,19 @@ sub getUsers(){
 
 =head3  getUsersAndAliases()
 
-Returns a hash describing all domains on the system. Keys are domains
-and aliases, where present, are targets.
+Returns a hash describing all users on the system. Keys are users and values are
+their targets.
 
 as with C<getUsers>, accepts a pattern to match.
 
+  %users = getUsersAndAliases('example.org');
+  foreach(keys(%users)){
+	if($users{$_} =~ /.+/){
+		print "$_ is an alias of $users{$_}\n";
+	}else{
+		print "$_ is a real mailbox" unless $users{$_};
+	}
+  }
 =cut
 
 sub getUsersAndAliases(){
@@ -341,6 +399,8 @@ sub getUsersAndAliases(){
 Returns a list of real users (i.e. those that are not aliases). If a domain is
 passed, returns only users on that domain, else returns a list of all real 
 users on the system.
+
+  @realUsers = getRealUsers('example.org');
 
 =cut
 
@@ -369,8 +429,10 @@ sub getRealUsers(){
 
 =head3 getAliasUsers()
 
-Returns a list of alias users on the system or, if a domain is set or passed as
-an argument, the domain.
+Returns a list of alias users on the system or, if a domain is passed as an argument, 
+the domain.
+
+  my @aliasUsers = $p->getAliasUsers('example.org');
 
 =cut
 
@@ -397,10 +459,14 @@ sub getAliasUsers() {
 	return @aliases;
 }
 
-=head3 domainExists() and userExists()
+=head3 domainExists()
 
-Check for the existence of a user. Returns the number found (in anticipation of 
-also serving as a sort-of search) if the domain does exist, empty otherwise.
+Check for the existence of a domain. Returns the number found (in anticipation of 
+also serving as a sort-of search) if the domain does exist, undef otherwise.
+
+  if($p->$domainExists('example.org')){
+  	print "example.org exists!\n";
+  }	
 
 =cut
 
@@ -430,6 +496,11 @@ sub domainExists(){
 
 Check for the existence of a user. Returns the number found (in anticipation of 
 also serving as a sort-of search) if the user does exist, empty otherwise.
+
+  if($p->userExists('user@example.com')){
+  	print "user@example.com exists!\n";
+  }
+
 
 =cut 
 
@@ -463,6 +534,10 @@ Returns true if the argument is a domain which is an alias (i.e. has a target).
 
 Actually returns the number of aliases the domain has.
 
+  if($p->domainIsAlias('example.net'){
+      print 'Mail for example.net is forwarded to ". getAliasDomainTarget('example.net');
+  }
+
 =cut
 
 sub domainIsAlias(){
@@ -486,6 +561,10 @@ sub domainIsAlias(){
 =head3 getAliasDomainTarget()
 
 Returns the target of a domain if it's an alias, undef otherwise.
+
+  if($p->domainIsAlias('example.net'){
+      print 'Mail for example.net is forwarded to ". getAliasDomainTarget('example.net');
+  }
 
 =cut
 
@@ -537,6 +616,10 @@ sub getAliasDomainTarget(){
 =head3 userIsAlias()
 
 Checks whether a user is an alias to another address.
+
+  if($p->userIsAlias('user@example.net'){
+      print 'Mail for user@example.net is forwarded to ". getAliasUserTarget('user@example.net');
+  }
 
 =cut
 
@@ -605,26 +688,31 @@ sub userIsAlias{
 #	return @addresses;
 #}
 
-#=head3 getAliasUserTargetArray()
-#
-#Returns an array of addresses for which the current user is an alias.
-#  
-# my @targets = $p->getAliasUserTargets($user);
-#
-#=cut 
-#
-#sub getAliasUserTargets{
-#	my $self = shift;
-#	my $user = shift;
-#	if ($user eq ''){ Carp::croak "No user passed to getAliasUserTargetArray";}
-#
-#	my @gotos = $self->_dbSelect(
-#		table	=> 'alias',
-#		fields	=> ['goto'],
-#		equals	=> [ 'address', $user ],
-#	);
-#	return @gotos;
-#}
+=head3 getAliasUserTargets()
+
+Returns an array of addresses for which the current user is an alias.
+  
+ my @targets = $p->getAliasUserTargets($user);
+
+  if($p->domainIsAlias('user@example.net'){
+      print 'Mail for example.net is forwarded to ". join(", ", getAliasDomainTarget('user@example.net'));
+  }
+
+
+=cut 
+
+sub getAliasUserTargets{
+	my $self = shift;
+	my $user = shift;
+	if ($user eq ''){ Carp::croak "No user passed to getAliasUserTargetArray";}
+
+	my @gotos = $self->_dbSelect(
+		table	=> 'alias',
+		fields	=> ['goto'],
+		equals	=> [ 'address', $user ],
+	);
+	return @gotos;
+}
 
 =head3 getUserInfo()
 
@@ -650,7 +738,6 @@ sub getUserInfo(){
 	my $user = shift;
 	Carp::croak "No user passed to getUserInfo" if $user eq '';
 	return unless $self->userExists($user);
-
 	my %userinfo;
 	my @results = $self->_dbSelect(
 		table  => 'mailbox',
@@ -662,7 +749,7 @@ sub getUserInfo(){
 
 =head3 getDomainInfo()
 
-Returns a hash containing info about a domain. Keys passed:
+Returns a hash containing info about a domain. Keys:
 
 	domain		The domain name
 	description	Content of the description field
@@ -763,28 +850,44 @@ sub cryptPassword(){
 	return $cryptedPassword;
 }
 
+=head3 cryptPasswordGPG()
+
+Encrypts a password with GPG. Only likely to work if storeGPGPasswords is set to a 
+non-zero value but happy to try without it.
+
+=cut
+
 sub cryptPasswordGPG(){
 	my $self = shift;
 	my $password = shift;
 	my $gpg = $self->{'gpg'};
 	$gpg->passphrase('');
-	return join("\n", $gpg->encrypt($password, $self->{'_gpgkeyholder'}));
+	return join("\n", $gpg->encrypt($password, $self->{'gpgRecipient'}));
 }
+
+=head3 cryptPasswordGPG()
+
+Decrypts a password with GPG. Only likely to work if storeGPGPasswords is set to a 
+non-zero value but happy to try without it.
+
+=cut
 
 sub decryptPasswordGPG(){
 	my $self = shift;
 	my $ciphertext = shift;
 	my $gpg = $self->{'gpg'};
-	$gpg->secretkey($self->{'gpgsecretkey'});
+	$gpg->secretkey($self->{'gpgSecretKey'});
 	my ($plaintext, $signature) = $gpg->verify($ciphertext);
 	return $plaintext;
 }
 
 =head3 changePassword() 
 
-Changes the password of a user. The user should be set with C<setUser> (or 
-equivalent) and the cleartext password passed as an argument. It returns the 
-encrypted password as written to the DB. 
+Changes the password of a user. Expects two arguments, a username and a new
+password:
+
+	$p->changePassword("user@domain.com", "password");
+
 The salt is picked at pseudo-random; successive runs will (should) produce 
 different results.
 
@@ -847,6 +950,7 @@ output by C<getDomainInfo()>. None are necessary except C<domain>.
 
 Defaults are set as follows:
 
+	domain		None; required.
 	description	A null string
 	quota		MySQL's default
 	transport	'virtual'
@@ -858,8 +962,8 @@ Defaults are set as follows:
 	maxquota	MySQL's default
 
 Defaults are only set on keys that haven't been instantiated. If you set a key 
-to undef or a null string, it will not be set to the default - null will be 
-passed to the DB and it may set its own default.
+to the null string, it will not be set to the default - null will be passed to 
+the DB and it may set its own default.
 
 On both success and failure the function will return a hash containing the 
 options used to configure the domain - you can inspect this to see which 
@@ -1008,7 +1112,7 @@ sub createUser(){
 
 Creates an alias domain:
 
- $v->createAliasDomain( 
+ $p->createAliasDomain( 
  	target => 'target.com',
  	alias  => 'alias.com'
  );
@@ -1083,7 +1187,7 @@ sub createAliasDomain {
 
 Creates an alias user:
 
- $v->createAliasUser( 
+ $p->createAliasUser( 
  	target => 'target@example.org');
  	alias  => 'alias@example.net
  );
@@ -1092,7 +1196,7 @@ will cause all mail sent to alias@example.com to be delivered to target@example.
 
 You may forward to more than one address by passing a comma-separated string:
 
- $v->createAliasDomain( 
+ $p->createAliasDomain( 
  	target => 'target@example.org, target@example.net',
  	alias  => 'alias@example.net',
  );
@@ -1109,13 +1213,13 @@ You may pass three other keys in the hash, though only C<target> and C<alias> ar
 
 In full:
 
- $v->createAliasUser(
+ $p->createAliasUser(
 		source   => 'someone@example.org',
 		target	 => "target@example.org, target@example.net",
 		domain	 => 'example.org',
 will cause all mail sent to something@alias.com to be delivered to 
-		modified => $v->now;
-		created	 => $v->now;
+		modified => $p->now;
+		created	 => $p->now;
 		active   => 1
  );
 
@@ -1224,7 +1328,7 @@ sub removeUser(){
 
 =head3 removeDomain()
 
-Removes the passed domain,  and all of its attached users (using C<removeUser()>).  
+Removes the passed domain, and all of its attached users (using C<removeUser()> on each).  
 
 Returns 1 on successful removal of a user, 2 if the user didn't exist to start with.
 
@@ -1283,6 +1387,13 @@ sub removeAliasDomain{
 	$sth->execute;
 }
 
+=head3 removeAliasUser()
+
+Removes the alias property of a user. An alias user is just a normal user which happens to be listed 
+in a table matching it with a target. This simply removes that row out of that table; you probably want 
+C<removeUser>.
+
+=cut
 sub removeAliasUser{
 	my $self = shift;
 	my $user = shift;
@@ -1643,7 +1754,7 @@ sub _fieldExists() {
 
 #=head3 errstr
 #
-#C<$v->errstr> contains the error message of the last action. If it's empty (i.e. C<$v->errstr eq ''>) then it should be safe to assume
+#C<$p->errstr> contains the error message of the last action. If it's empty (i.e. C<$v->errstr eq ''>) then it should be safe to assume
 #nothing went wrong. Currently, it's only used where the creation or deletion of something appeared to succeed, but the something 
 #didn't begin to exist or cease to exist.
 #
@@ -1660,7 +1771,7 @@ sub _fieldExists() {
 C<dbi> is the dbi object used by the rest of the module, having guessed/set the appropriate credentials. 
 You can use it as you would the return directly from a $dbi->connect:
 
-  my $sth = $v->{dbi}->prepare($query);
+  my $sth = $p->{dbi}->prepare($query);
   $sth->execute;
 
 =head3 params
