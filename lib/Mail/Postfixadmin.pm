@@ -197,14 +197,11 @@ sub new() {
 
 
 	}
-
 #	$self->{mailLocation} = (reverse(grep(/\s*mail_location/, qx/$self->{_doveconf}/)))[0];
 #	chomp $self->{mailLocation};
 	bless($self,$class);
 	return $self;
 }
-
-
 
 
 =head1 METHODS
@@ -776,7 +773,7 @@ sub decryptPasswordGPG(){
 	my $gpg = $self->{'gpg'};
 	$gpg->secretkey($self->{'gpgsecretkey'});
 	my ($plaintext, $signature) = $gpg->verify($ciphertext);
-	return $plaintext, "\n", $signature;
+	return $plaintext;
 }
 
 =head3 changePassword() 
@@ -831,9 +828,8 @@ sub changeCryptedPassword(){
 	}
 	$query.="where `$self->{'fields'}->{'mailbox'}->{'username'}` = '$user'";
 
-	print $query."\n";
-#	my $sth = $self->{dbi}->prepare($query);
-#	$sth->execute();
+	my $sth = $self->{dbi}->prepare($query);
+	$sth->execute();
 
 	return $cryptedPassword;
 }
