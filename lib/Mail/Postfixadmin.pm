@@ -129,17 +129,20 @@ sub new() {
 
 	# Here we build a DBI object using whatever DB credentials we can find:
 	my @_dbi;
-	if($self->{_params}->{mysqlconf} =~ m@/@){
-		@_dbi = _parseMysqlConfigFile($self->{_params}->{mysqlconf});
-	}else{
-		unless(exists($self->{_params}->{maincf})){
-			$self->{_params}->{maincf} = '/etc/postfix/main.cf';
-		}
-		@_dbi = _parsePostfixConfigFile($self->{_params}->{maincf});
-	}	
-	$self->{_params}->{dbi} = $_dbi[0];
-	$self->{_params}->{dbuser} = $_dbi[1];
-	$self->{_params}->{dbpass} = $_dbi[2];
+	unless(exists($self->{'_params'}->{'dbi'})){
+		print "dbi param not sent\n";
+		if($self->{_params}->{mysqlconf} =~ m@/@){
+			@_dbi = _parseMysqlConfigFile($self->{_params}->{mysqlconf});
+		}else{
+			unless(exists($self->{_params}->{maincf})){
+				$self->{_params}->{maincf} = '/etc/postfix/main.cf';
+			}
+			@_dbi = _parsePostfixConfigFile($self->{_params}->{maincf});
+		}	
+		$self->{_params}->{dbi} = $_dbi[0];
+		$self->{_params}->{dbuser} = $_dbi[1];
+		$self->{_params}->{dbpass} = $_dbi[2];
+	}
 	$self->{dbi} = DBI->connect(
 		$self->{_params}->{dbi},
 		$self->{_params}->{dbuser},
@@ -169,11 +172,8 @@ sub new() {
 		}
 	}
 
-
-
-
-	$self->{mailLocation} = (reverse(grep(/\s*mail_location/, qx/$self->{_doveconf}/)))[0];
-	chomp $self->{mailLocation};
+#	$self->{mailLocation} = (reverse(grep(/\s*mail_location/, qx/$self->{_doveconf}/)))[0];
+#	chomp $self->{mailLocation};
 	bless($self,$class);
 	return $self;
 }
