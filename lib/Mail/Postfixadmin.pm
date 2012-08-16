@@ -243,53 +243,6 @@ sub new() {
 
 =head1 METHODS
 
-=cut 
-
-#=head2 User and domain information
-#
-#=head3 numDomains()
-#
-#Returns the number of domains configured on the server. If you'd like only 
-#those that match some pattern, you should use C<getDomains()> and measure the 
-#size of the returned list.
-#
-#=cut
-#
-#
-#sub numDomains(){
-#	my $self = shift;
-#	my $query = "select count(*) from $self->{tables}->{domain}";
-#	my $numDomains = ($self->{dbi}->selectrow_array($query))[0];
-#	$numDomains--;	# since there's an 'ALL' domain in the db
-#	$self->{_numDomains} = $numDomains;
-#	$self->{infostr} = $query;
-#	return $self->{_numDomains};
-#}
-#
-#
-#=head3 numUsers()
-#
-#Returns the number of configured users. If a domain is passed as an argument it 
-#will only return users configured on that domain. If not, it will return a 
-#count of all users on the system
-#
-#=cut
-#
-#sub numUsers(){
-#	my $self = shift;
-#	my $query;
-#	my $domain = shift;
-#	if ($domain){
-#		$query = "select count(*) from `$self->{tables}->{mailbox}` where $self->{fields}->{mailbox}->{domain} = \'$domain}\'"
-#	}else{
-#		$query = "select count(*) from `$self->{tables}->{mailbox}`";
-#	}
-#	my $numUsers = ($self->{dbi}->selectrow_array($query))[0];
-#	$self->{infostr} = $query;
-#	return $numUsers;
-#}
-#
-
 =head3 getDomains() 
 
 Returns an array of domains on the system. This is all domains for
