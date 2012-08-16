@@ -248,8 +248,8 @@ sub new() {
 Returns an array of domains on the system. This is all domains for
 which the system will accept mail, including aliases.
 
-You can pass a pattern as the argument to get only domains matching 
-that pattern:
+Accepts a pattern as an argument, which causes it to return only 
+domains whose names match that pattern:
 
   @domains = $getDomains('com$');
 
@@ -282,7 +282,7 @@ As with getDomains, accepts a regex pattern as an argument.
 	if($domains{$_} =~ /.+/){
 		print "$_ is an alias of $domains{$_}\n";
 	}else{
-		print "$_ is a real domain" unless $domains{$_};
+		print "$_ is a real domain\n";
 	}
   }
 
@@ -302,8 +302,6 @@ sub getDomainsAndAliases(){
 =head3 getUsers()
 
 Returns a list of all users. If a domain is passed, only returns users on that domain.
-
-You can pass a pattern as the argument to get only users matchin that pattern.
 
   @users = getUsers('example.org');
 
@@ -329,7 +327,7 @@ as with C<getUsers>, accepts a pattern to match.
 	if($users{$_} =~ /.+/){
 		print "$_ is an alias of $users{$_}\n";
 	}else{
-		print "$_ is a real mailbox" unless $users{$_};
+		print "$_ is a real mailbox\n";
 	}
   }
 =cut
@@ -338,8 +336,8 @@ sub getUsersAndAliases(){
 	my $self = shift;
 	my $regex = shift;
 	my @users = $self->getUsers($regex);
-	# prepend a null string so that we definitely get a domain every odd-
-	# numbered element of the list map returns, else the hash looks a bit
+	# prepend a zero-length string so that we definitely have a domain at 
+	# every odd-numbered element returned by the map else the hash looks a bit
 	# weird
 	my %usersWithAliases = map {$_ => "".$self->getAliasUserTarget($_)} @users;
 	return %usersWithAliases;
@@ -412,8 +410,8 @@ sub getAliasUsers() {
 
 =head3 domainExists()
 
-Check for the existence of a domain. Returns the number found (in anticipation of 
-also serving as a sort-of search) if the domain does exist, undef otherwise.
+Check for the existence of a domain. Returns the number found with that name if
+positive, undef if none are found.
 
   if($p->$domainExists('example.org')){
   	print "example.org exists!\n";
@@ -445,8 +443,8 @@ sub domainExists(){
 
 =head3 userExists()
 
-Check for the existence of a user. Returns the number found (in anticipation of 
-also serving as a sort-of search) if the user does exist, empty otherwise.
+Check for the existence of a user. Returns the number found with that name if
+positive, undef if none are found.
 
   if($p->userExists('user@example.com')){
   	print "user@example.com exists!\n";
@@ -458,7 +456,6 @@ also serving as a sort-of search) if the user does exist, empty otherwise.
 sub userExists(){
 	my $self = shift;
 	my $user = shift;
-
 
 	if ($user eq ''){
 		Carp::croak "No username passed to userExists";
@@ -481,9 +478,8 @@ sub userExists(){
 
 =head3 domainIsAlias()
 
-Returns true if the argument is a domain which is an alias (i.e. has a target). 
-
-Actually returns the number of aliases the domain has.
+Check whether a domain is an alias. Returns the number of 'targets' a domain has if
+that's a positive number, else undef.
 
   if($p->domainIsAlias('example.net'){
       print 'Mail for example.net is forwarded to ". getAliasDomainTarget('example.net');
@@ -538,32 +534,6 @@ sub getAliasDomainTarget(){
 }
 		
 
-#=head3 domainIsTarget()
-#
-#Checks whether the domain passed is the target of an alias domain. Returns the 
-#number of aliases that have the set domain as their targets, undef if none are 
-#found.
-#
-#=cut
-#
-#sub domainIsTarget(){
-#	my $self = shift;
-#	my $domain = shift;
-#	if ($domain eq ''){
-#		Carp::croak "No domain passed to domainIstarget";
-#	}
-#	my $query = "select count(*) from $self->{tables}->{alias_domain} where $self->{fields}->{alias_domain}->{target_domain} = '$domain'";
-#	my $sth = $self->{dbi}->prepare($query);
-#	$sth->execute;
-#	my $count = ($sth->fetchrow_array())[0];
-#	$self->{infostr} = $query;
-#	if ($count > 0){
-#		return $count;
-#	}else{
-#		return;
-#	}
-#}
-
 =head3 userIsAlias()
 
 Checks whether a user is an alias to another address.
@@ -589,55 +559,6 @@ sub userIsAlias{
 		return;
 	}
 }
-
-#=head3 userIsTarget()
-#
-#Checks whether the passed user is a target for an alias user. Returns the number 
-#of rows in which the user is configured as an alias (which should be the number 
-#of unique addresses, but may not be. Use C<getUserAliases()> for a more 
-#accurate count), undef if it's not a target.
-#
-#=cut
-#
-#sub userIsTarget{
-#	my $self = shift;
-#	my $user = shift;
-#	if ($user eq ''){ Carp::croak "No user passed to userIsTarget";}
-#	my @results = $self->_dbSelect(
-#		count => 'true',
-#		like  => ['goto', "%$user%"],
-#		table => 'alias'
-#	);
-#	my %row = %{$results[0]};
-#	my $count = $row{'count(*)'};
-#	if ($count > 0){
-#		return $count;
-#	}else{
-#		return;
-#	}
-#}
-
-#=head3 getUserAliases()
-#
-#Returns a list of aliases for which the passed user is a target.
-#
-# my @aliasAddresses = getUserAliases($address);
-#
-#=cut
-#
-#sub getUserAliases{
-#	my $self = shift;
-#	my $user = shift;
-#	if ($user eq ''){ Carp::croak "No user passed to getUserAliases";}
-#	my $query = "select $self->{fields}->{alias}->{address} from $self->{tables}->{alias} where $self->{fields}->{alias}->{goto} like '%user%'";
-#	my $sth = $self->{dbi}->prepare($query);
-#	$sth->execute;
-#	my @addresses;
-#	while(my @row = $sth->fetchrow_array()){
-#		push(@addresses, $row[0]);
-#	}
-#	return @addresses;
-#}
 
 =head3 getAliasUserTargets()
 
@@ -758,32 +679,6 @@ sub getDomainInfo(){
 	return %return;
 }
 
-#=head3 getTargetAliases()
-#
-#Returns a list of aliases for the target currently set as the domain. Returns 
-#false if the domain is not listed as a target, an empty list if the domain is 
-#listed as a target, but the alias is NULL.
-#
-#=cut
-#
-#sub getTargetAliases{
-#	my $self = shift;
-#	my $domain = shift;
-#	if ($domain eq ''){ Carp::croak "No domain passed to getTargetAliases"; }
-#	my @results = $self->_dbSelect(
-#		table  => "alias_domain",
-#		fields => ["alias_domain"],
-#		equals => ['target_domain', $domain],
-#	);
-#	my @aliases;
-#	foreach my $r (@results){
-#		my %row = %{$r};
-#		push (@aliases, $row{'alias_domain'});
-#	}
-#	return @aliases;
-#}
-
-
 =head2 Passwords
 
 =head3 cryptPassword()
@@ -902,7 +797,7 @@ output by C<getDomainInfo()>. None are necessary except C<domain>.
 Defaults are set as follows:
 
 	domain		None; required.
-	description	A null string
+	description	An empty string
 	quota		MySQL's default
 	transport	'virtual'
 	active		1 (active)
@@ -913,7 +808,7 @@ Defaults are set as follows:
 	maxquota	MySQL's default
 
 Defaults are only set on keys that haven't been instantiated. If you set a key 
-to the null string, it will not be set to the default - null will be passed to 
+to an empty string, it will not be set to the default - null will be passed to 
 the DB and it may set its own default.
 
 On both success and failure the function will return a hash containing the 
@@ -973,7 +868,7 @@ output by C<getUserInfo()>. None are necessary except C<username>.
 
 If both C<password_plain> and <password_crypt> are in the passed hash, 
 C<password_crypt> will be used. If only password_plain is passed it will be 
-crypted with C<cryptPasswd()> and then inserted.
+crypted with C<cryptPasswd()> and then used.
 
 Defaults are mostly sane where values aren't explicitly passed:
 
@@ -1072,7 +967,7 @@ something@target.com. Notably, it does not check that the domain is not already
 aliased elsewhere, so you can end up aliasing one domain to two targets which 
 is probably not what you want.
 
-You can pass three other keys in the hash, though only C<target> and c<alias> 
+You can pass three other keys in the hash, though only C<target> and C<alias> 
 are required:
  created	'created' date. Is passed verbatim to the db so should be in a 
  		format it understands.
@@ -1248,9 +1143,6 @@ Removes the passed user;
 
 Returns 1 on successful removal of a user, 2 if the user didn't exist to start with.
 
-C<infostr> is set to the query run only if the user exists. If the user doesn't exist, no query is run
-and C<infostr> is set to "user doesn't exist (<user>)";
-
 =cut
 
 ##Todo: Accept a hash of field=>MySQL regex with which to define users to delete
@@ -1319,7 +1211,7 @@ sub removeDomain(){
 
 Removes the alias property of a domain. An alias domain is just a normal domain which happens to be listed 
 in a table matching it with a target. This simply removes that row out of that table; you probably want 
-C<removeDomain>.
+C<removeDomain> if you want to neatly remove an alias domain.
 
 =cut
 
@@ -1342,7 +1234,7 @@ sub removeAliasDomain{
 
 Removes the alias property of a user. An alias user is just a normal user which happens to be listed 
 in a table matching it with a target. This simply removes that row out of that table; you probably want 
-C<removeUser>.
+C<removeUser> if you want to neatly remove an alias user.
 
 =cut
 sub removeAliasUser{
