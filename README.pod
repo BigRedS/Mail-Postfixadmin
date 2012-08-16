@@ -11,7 +11,7 @@ use Carp;
 use Data::Dumper;
 
 our $VERSION;
-$VERSION = "0.0.20111229";
+$VERSION = "0.0.20120816";
 
 =pod
 
@@ -25,9 +25,6 @@ Mail::Postfixadmin is an attempt to provide a bunch of functions that wrap
 around the tedious SQL involved in interfering with a Postfix/Dovecot/MySQL 
 virtual mailbox mail system.
 
-It's _very_much_ still in development. All sorts of things will change :) This 
-is currently a todo list as much as it is documentation of the module.
-
 This is also completely not an object-orientated interface to the 
 Postfix/Dovecot mailer, since it doesn't actually represent anything sensibly 
 as objects. At best, it's an object-considering means of configuring it.
@@ -37,12 +34,12 @@ as objects. At best, it's an object-considering means of configuring it.
 	my $p = Mail::Postfixadmin->new();
 	$p->createDomain(
 		domain        => 'example.org',
-	        description   => 'an example',
+		description   => 'an example',
 		num_mailboxes => '0',
 	);
 
 	$p->createUser(
-		ussername      => 'avi@example.com',
+		username       => 'avi@example.com',
 		password_plain => 'password',
 		name           => 'avi',
 	);
@@ -58,13 +55,13 @@ as objects. At best, it's an object-considering means of configuring it.
 
 =head2 new()
 
-Creates and returns a new Mail::Postfixadmin object. You want to provide some 
-way of determining how to connect to the database; there are three ways, listed 
+Creates and returns a new Mail::Postfixadmin object. You probably want to provide 
+some way of determining how to connect to the database; there are three ways, listed 
 in order of precedence (i.e. the third overrules the second which overrules the
 first):
 
-Firstly, you may pass nothing to the constructor, and have it parse 
-/etc/postfix/main.cf:
+Firstly, you may simply pass nothing to the constructor, and have it parse 
+C</etc/postfix/main.cf>:
 
   my $v = Mail::Postfixadmin->new();
 
@@ -77,9 +74,9 @@ three arguments to a C<DBI-E<gt>connect> (they are used for exactly this):
 	 dbpass => 'password'
   );
 
-Thirdly, you may pass a path to main.cf to the constructor, and have it parse 
-that file to find a file specifying the file in which to find Postfix's MySQL 
-configuration and then parse *that* file to get the credentials:
+Thirdly, you may pass the  path to C<main.cf> to the constructor. This causes the 
+constructor to parse C<main.cf> to find the path to one of Postfix's MySQL config
+files. The first of these is then parsed to find the MySQL credentials.
 
  my $v = Mail::Postfixadmin->new(
  	 maincf	=> '/etc/postfix/main.cf'
@@ -94,7 +91,8 @@ and overwritten by data found in the files. C<main.cf> is deemed to have been
 
 By default, passwords are crypted with Crypt::PasswdMD5 and stored in the 
 C<password> field of the relevant table. Optionally, you may also have them 
-stored in cleartext and/or PGP-encrypted forms.
+stored in cleartext and/or PGP-encrypted forms. Currently, GPG and clear-text 
+password storage is considered experimental.
 
 To do this you need to set the C<storeCleartextPassword> and/or 
 C<storeGPGPassword> keys to a non-zero value and make sure you have the correct
@@ -124,7 +122,7 @@ A complete example might read:
 Each of these appear as attributes of the object with the same name so you can, 
 for example, change the key used later on with:
 
-  $p->gpgSecretKey("102FC958");
+  $p->gpgSecretKey = "102FC958";
 
 
 );
@@ -245,60 +243,13 @@ sub new() {
 
 =head1 METHODS
 
-=cut 
-
-#=head2 User and domain information
-#
-#=head3 numDomains()
-#
-#Returns the number of domains configured on the server. If you'd like only 
-#those that match some pattern, you should use C<getDomains()> and measure the 
-#size of the returned list.
-#
-#=cut
-#
-#
-#sub numDomains(){
-#	my $self = shift;
-#	my $query = "select count(*) from $self->{tables}->{domain}";
-#	my $numDomains = ($self->{dbi}->selectrow_array($query))[0];
-#	$numDomains--;	# since there's an 'ALL' domain in the db
-#	$self->{_numDomains} = $numDomains;
-#	$self->{infostr} = $query;
-#	return $self->{_numDomains};
-#}
-#
-#
-#=head3 numUsers()
-#
-#Returns the number of configured users. If a domain is passed as an argument it 
-#will only return users configured on that domain. If not, it will return a 
-#count of all users on the system
-#
-#=cut
-#
-#sub numUsers(){
-#	my $self = shift;
-#	my $query;
-#	my $domain = shift;
-#	if ($domain){
-#		$query = "select count(*) from `$self->{tables}->{mailbox}` where $self->{fields}->{mailbox}->{domain} = \'$domain}\'"
-#	}else{
-#		$query = "select count(*) from `$self->{tables}->{mailbox}`";
-#	}
-#	my $numUsers = ($self->{dbi}->selectrow_array($query))[0];
-#	$self->{infostr} = $query;
-#	return $numUsers;
-#}
-#
-
 =head3 getDomains() 
 
 Returns an array of domains on the system. This is all domains for
 which the system will accept mail, including aliases.
 
-You can pass a pattern as the argument to get only domains matching 
-that pattern:
+Accepts a pattern as an argument, which causes it to return only 
+domains whose names match that pattern:
 
   @domains = $getDomains('com$');
 
@@ -331,7 +282,7 @@ As with getDomains, accepts a regex pattern as an argument.
 	if($domains{$_} =~ /.+/){
 		print "$_ is an alias of $domains{$_}\n";
 	}else{
-		print "$_ is a real domain" unless $domains{$_};
+		print "$_ is a real domain\n";
 	}
   }
 
@@ -351,8 +302,6 @@ sub getDomainsAndAliases(){
 =head3 getUsers()
 
 Returns a list of all users. If a domain is passed, only returns users on that domain.
-
-You can pass a pattern as the argument to get only users matchin that pattern.
 
   @users = getUsers('example.org');
 
@@ -378,18 +327,17 @@ as with C<getUsers>, accepts a pattern to match.
 	if($users{$_} =~ /.+/){
 		print "$_ is an alias of $users{$_}\n";
 	}else{
-		print "$_ is a real mailbox" unless $users{$_};
+		print "$_ is a real mailbox\n";
 	}
   }
-
 =cut
 
 sub getUsersAndAliases(){
 	my $self = shift;
 	my $regex = shift;
 	my @users = $self->getUsers($regex);
-	# prepend a null string so that we definitely get a domain every odd-
-	# numbered element of the list map returns, else the hash looks a bit
+	# prepend a zero-length string so that we definitely have a domain at 
+	# every odd-numbered element returned by the map else the hash looks a bit
 	# weird
 	my %usersWithAliases = map {$_ => "".$self->getAliasUserTarget($_)} @users;
 	return %usersWithAliases;
@@ -462,8 +410,8 @@ sub getAliasUsers() {
 
 =head3 domainExists()
 
-Check for the existence of a domain. Returns the number found (in anticipation of 
-also serving as a sort-of search) if the domain does exist, undef otherwise.
+Check for the existence of a domain. Returns the number found with that name if
+positive, undef if none are found.
 
   if($p->$domainExists('example.org')){
   	print "example.org exists!\n";
@@ -495,8 +443,8 @@ sub domainExists(){
 
 =head3 userExists()
 
-Check for the existence of a user. Returns the number found (in anticipation of 
-also serving as a sort-of search) if the user does exist, empty otherwise.
+Check for the existence of a user. Returns the number found with that name if
+positive, undef if none are found.
 
   if($p->userExists('user@example.com')){
   	print "user@example.com exists!\n";
@@ -508,7 +456,6 @@ also serving as a sort-of search) if the user does exist, empty otherwise.
 sub userExists(){
 	my $self = shift;
 	my $user = shift;
-
 
 	if ($user eq ''){
 		Carp::croak "No username passed to userExists";
@@ -531,9 +478,8 @@ sub userExists(){
 
 =head3 domainIsAlias()
 
-Returns true if the argument is a domain which is an alias (i.e. has a target). 
-
-Actually returns the number of aliases the domain has.
+Check whether a domain is an alias. Returns the number of 'targets' a domain has if
+that's a positive number, else undef.
 
   if($p->domainIsAlias('example.net'){
       print 'Mail for example.net is forwarded to ". getAliasDomainTarget('example.net');
@@ -588,32 +534,6 @@ sub getAliasDomainTarget(){
 }
 		
 
-#=head3 domainIsTarget()
-#
-#Checks whether the domain passed is the target of an alias domain. Returns the 
-#number of aliases that have the set domain as their targets, undef if none are 
-#found.
-#
-#=cut
-#
-#sub domainIsTarget(){
-#	my $self = shift;
-#	my $domain = shift;
-#	if ($domain eq ''){
-#		Carp::croak "No domain passed to domainIstarget";
-#	}
-#	my $query = "select count(*) from $self->{tables}->{alias_domain} where $self->{fields}->{alias_domain}->{target_domain} = '$domain'";
-#	my $sth = $self->{dbi}->prepare($query);
-#	$sth->execute;
-#	my $count = ($sth->fetchrow_array())[0];
-#	$self->{infostr} = $query;
-#	if ($count > 0){
-#		return $count;
-#	}else{
-#		return;
-#	}
-#}
-
 =head3 userIsAlias()
 
 Checks whether a user is an alias to another address.
@@ -639,55 +559,6 @@ sub userIsAlias{
 		return;
 	}
 }
-
-#=head3 userIsTarget()
-#
-#Checks whether the passed user is a target for an alias user. Returns the number 
-#of rows in which the user is configured as an alias (which should be the number 
-#of unique addresses, but may not be. Use C<getUserAliases()> for a more 
-#accurate count), undef if it's not a target.
-#
-#=cut
-#
-#sub userIsTarget{
-#	my $self = shift;
-#	my $user = shift;
-#	if ($user eq ''){ Carp::croak "No user passed to userIsTarget";}
-#	my @results = $self->_dbSelect(
-#		count => 'true',
-#		like  => ['goto', "%$user%"],
-#		table => 'alias'
-#	);
-#	my %row = %{$results[0]};
-#	my $count = $row{'count(*)'};
-#	if ($count > 0){
-#		return $count;
-#	}else{
-#		return;
-#	}
-#}
-
-#=head3 getUserAliases()
-#
-#Returns a list of aliases for which the passed user is a target.
-#
-# my @aliasAddresses = getUserAliases($address);
-#
-#=cut
-#
-#sub getUserAliases{
-#	my $self = shift;
-#	my $user = shift;
-#	if ($user eq ''){ Carp::croak "No user passed to getUserAliases";}
-#	my $query = "select $self->{fields}->{alias}->{address} from $self->{tables}->{alias} where $self->{fields}->{alias}->{goto} like '%user%'";
-#	my $sth = $self->{dbi}->prepare($query);
-#	$sth->execute;
-#	my @addresses;
-#	while(my @row = $sth->fetchrow_array()){
-#		push(@addresses, $row[0]);
-#	}
-#	return @addresses;
-#}
 
 =head3 getAliasUserTargets()
 
@@ -808,32 +679,6 @@ sub getDomainInfo(){
 	return %return;
 }
 
-#=head3 getTargetAliases()
-#
-#Returns a list of aliases for the target currently set as the domain. Returns 
-#false if the domain is not listed as a target, an empty list if the domain is 
-#listed as a target, but the alias is NULL.
-#
-#=cut
-#
-#sub getTargetAliases{
-#	my $self = shift;
-#	my $domain = shift;
-#	if ($domain eq ''){ Carp::croak "No domain passed to getTargetAliases"; }
-#	my @results = $self->_dbSelect(
-#		table  => "alias_domain",
-#		fields => ["alias_domain"],
-#		equals => ['target_domain', $domain],
-#	);
-#	my @aliases;
-#	foreach my $r (@results){
-#		my %row = %{$r};
-#		push (@aliases, $row{'alias_domain'});
-#	}
-#	return @aliases;
-#}
-
-
 =head2 Passwords
 
 =head3 cryptPassword()
@@ -952,7 +797,7 @@ output by C<getDomainInfo()>. None are necessary except C<domain>.
 Defaults are set as follows:
 
 	domain		None; required.
-	description	A null string
+	description	An empty string
 	quota		MySQL's default
 	transport	'virtual'
 	active		1 (active)
@@ -963,7 +808,7 @@ Defaults are set as follows:
 	maxquota	MySQL's default
 
 Defaults are only set on keys that haven't been instantiated. If you set a key 
-to the null string, it will not be set to the default - null will be passed to 
+to an empty string, it will not be set to the default - null will be passed to 
 the DB and it may set its own default.
 
 On both success and failure the function will return a hash containing the 
@@ -1023,7 +868,7 @@ output by C<getUserInfo()>. None are necessary except C<username>.
 
 If both C<password_plain> and <password_crypt> are in the passed hash, 
 C<password_crypt> will be used. If only password_plain is passed it will be 
-crypted with C<cryptPasswd()> and then inserted.
+crypted with C<cryptPasswd()> and then used.
 
 Defaults are mostly sane where values aren't explicitly passed:
 
@@ -1122,7 +967,7 @@ something@target.com. Notably, it does not check that the domain is not already
 aliased elsewhere, so you can end up aliasing one domain to two targets which 
 is probably not what you want.
 
-You can pass three other keys in the hash, though only C<target> and c<alias> 
+You can pass three other keys in the hash, though only C<target> and C<alias> 
 are required:
  created	'created' date. Is passed verbatim to the db so should be in a 
  		format it understands.
@@ -1298,9 +1143,6 @@ Removes the passed user;
 
 Returns 1 on successful removal of a user, 2 if the user didn't exist to start with.
 
-C<infostr> is set to the query run only if the user exists. If the user doesn't exist, no query is run
-and C<infostr> is set to "user doesn't exist (<user>)";
-
 =cut
 
 ##Todo: Accept a hash of field=>MySQL regex with which to define users to delete
@@ -1369,7 +1211,7 @@ sub removeDomain(){
 
 Removes the alias property of a domain. An alias domain is just a normal domain which happens to be listed 
 in a table matching it with a target. This simply removes that row out of that table; you probably want 
-C<removeDomain>.
+C<removeDomain> if you want to neatly remove an alias domain.
 
 =cut
 
@@ -1392,7 +1234,7 @@ sub removeAliasDomain{
 
 Removes the alias property of a user. An alias user is just a normal user which happens to be listed 
 in a table matching it with a target. This simply removes that row out of that table; you probably want 
-C<removeUser>.
+C<removeUser> if you want to neatly remove an alias user.
 
 =cut
 sub removeAliasUser{
@@ -1723,6 +1565,8 @@ sub _mysqlNow() {
 sub generatePassword() {
 	my $self = shift;
 	my $length = shift;
+	Carp::croak "generatePassword() called with no arguments (length required)" if $length =~ /^$/;
+	Carp::croak "generatePassword() called with non-numeric argument (length expected)" if $length !~ /^\s*\d+\.?\d*\s*$/;
 	my @characters = qw/a b c d e f g h i j k l m n o p q r s t u v w x y z
 			    A B C D E F G H I J K L M N O P Q R S T U V W X Y Z 
 			    1 2 3 4 5 6 7 8 9 0 - =
