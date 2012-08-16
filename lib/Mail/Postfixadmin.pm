@@ -11,7 +11,7 @@ use Carp;
 use Data::Dumper;
 
 our $VERSION;
-$VERSION = "0.0.20111229";
+$VERSION = "0.0.20120816";
 
 =pod
 
@@ -25,9 +25,6 @@ Mail::Postfixadmin is an attempt to provide a bunch of functions that wrap
 around the tedious SQL involved in interfering with a Postfix/Dovecot/MySQL 
 virtual mailbox mail system.
 
-It's _very_much_ still in development. All sorts of things will change :) This 
-is currently a todo list as much as it is documentation of the module.
-
 This is also completely not an object-orientated interface to the 
 Postfix/Dovecot mailer, since it doesn't actually represent anything sensibly 
 as objects. At best, it's an object-considering means of configuring it.
@@ -37,12 +34,12 @@ as objects. At best, it's an object-considering means of configuring it.
 	my $p = Mail::Postfixadmin->new();
 	$p->createDomain(
 		domain        => 'example.org',
-	        description   => 'an example',
+		description   => 'an example',
 		num_mailboxes => '0',
 	);
 
 	$p->createUser(
-		ussername      => 'avi@example.com',
+		username       => 'avi@example.com',
 		password_plain => 'password',
 		name           => 'avi',
 	);
@@ -58,13 +55,13 @@ as objects. At best, it's an object-considering means of configuring it.
 
 =head2 new()
 
-Creates and returns a new Mail::Postfixadmin object. You want to provide some 
-way of determining how to connect to the database; there are three ways, listed 
+Creates and returns a new Mail::Postfixadmin object. You probably want to provide 
+some way of determining how to connect to the database; there are three ways, listed 
 in order of precedence (i.e. the third overrules the second which overrules the
 first):
 
-Firstly, you may pass nothing to the constructor, and have it parse 
-/etc/postfix/main.cf:
+Firstly, you may simply pass nothing to the constructor, and have it parse 
+C</etc/postfix/main.cf>:
 
   my $v = Mail::Postfixadmin->new();
 
@@ -77,9 +74,9 @@ three arguments to a C<DBI-E<gt>connect> (they are used for exactly this):
 	 dbpass => 'password'
   );
 
-Thirdly, you may pass a path to main.cf to the constructor, and have it parse 
-that file to find a file specifying the file in which to find Postfix's MySQL 
-configuration and then parse *that* file to get the credentials:
+Thirdly, you may pass the  path to C<main.cf> to the constructor. This causes the 
+constructor to parse C<main.cf> to find the path to one of Postfix's MySQL config
+files. The first of these is then parsed to find the MySQL credentials.
 
  my $v = Mail::Postfixadmin->new(
  	 maincf	=> '/etc/postfix/main.cf'
@@ -94,7 +91,8 @@ and overwritten by data found in the files. C<main.cf> is deemed to have been
 
 By default, passwords are crypted with Crypt::PasswdMD5 and stored in the 
 C<password> field of the relevant table. Optionally, you may also have them 
-stored in cleartext and/or PGP-encrypted forms.
+stored in cleartext and/or PGP-encrypted forms. Currently, GPG and clear-text 
+password storage is considered experimental.
 
 To do this you need to set the C<storeCleartextPassword> and/or 
 C<storeGPGPassword> keys to a non-zero value and make sure you have the correct
@@ -124,7 +122,7 @@ A complete example might read:
 Each of these appear as attributes of the object with the same name so you can, 
 for example, change the key used later on with:
 
-  $p->gpgSecretKey("102FC958");
+  $p->gpgSecretKey = "102FC958";
 
 
 );
