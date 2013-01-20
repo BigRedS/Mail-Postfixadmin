@@ -1338,9 +1338,7 @@ were set, in the form that the constructor expects.
 sub getOptions{
 	my $self = shift;
 	my %params = %{$self->{_params}};
-	foreach(keys(%params)){
-		print("$_\t=> $params{$_}\n");
-	}
+	return %params;
 }
 =head3 getTables getFields setTables setFields
 
