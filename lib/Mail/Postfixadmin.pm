@@ -945,6 +945,10 @@ sub createUser(){
 	my $sth = $self->{dbi}->prepare($query);
 	$sth->execute();	
 	$self->{infostr} = $query;
+	$self->createAliasUser(
+		target => $user,
+		alias  => $user,
+	);
 	if($self->userExists($user)){
 		return %opts;
 	}else{
@@ -1085,9 +1089,14 @@ sub createAliasUser {
 	unless(exists($opts{'target'})){
 		Carp::croak "No target key in hash passed to createAliasUser";
 	}
-	if($self->userExists($user)){
-		Carp::croak "User $user already exists (passed as alias to createAliasUser)";
-	}
+# The PFA web ui creates an alias for each user (with itself as the target)
+# and so we must either be able to create aliases for users that already
+# exist, or have some special case. I can't see a reason for this to be a
+# special case so I'm removing the check, but leaving a relic of it to remind 
+# me that it did once look like a good idea.
+#	if($self->userExists($user)){
+#		Carp::croak "User $user already exists (passed as alias to createAliasUser)";
+#	}
 	if($self->userIsAlias($user)){
 		Carp::croak "User $user is already an alias (passed to createAliasUser)";
 	}
