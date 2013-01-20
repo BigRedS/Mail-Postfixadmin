@@ -163,7 +163,6 @@ sub new() {
 	# Here we build a DBI object using whatever DB credentials we can find:
 	my @_dbi;
 	unless(exists($self->{'_params'}->{'dbi'})){
-		print "dbi param not sent\n";
 		if($self->{_params}->{mysqlconf} =~ m@/@){
 			@_dbi = _parseMysqlConfigFile($self->{_params}->{mysqlconf});
 		}else{
