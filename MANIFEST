@@ -1,19 +1,6 @@
 Changes
-lib
-lib/Mail
-lib/Mail/Vpostmail.pm
+lib/Mail/Postfixadmin.pm
 Makefile.PL
-MANIFEST
-bin
-bin/vaddaliasuser
-bin/vuserinfo
-bin/vpasswd
-bin/vdominfo
-bin/vdeluser
-bin/vadduser
-bin/vdeldomain
-bin/vadddomain
-bin/vaddaliasdomain
-t
+MANIFEST			This list of files
+README.pod
 t/Mail-Vpostmail.t
-README

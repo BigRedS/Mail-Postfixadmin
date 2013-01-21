@@ -11,7 +11,7 @@ use Carp;
 use Data::Dumper;
 
 our $VERSION;
-$VERSION = "0.0.20120816";
+$VERSION = "0.0.20130121";
 
 =pod
 

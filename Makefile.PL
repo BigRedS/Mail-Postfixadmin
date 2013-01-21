@@ -10,8 +10,8 @@ WriteMakefile(
 		'Crypt::PasswdMD5'	=> '1.3'
 	},
 	EXE_FILES	=> [qw(bin/vaddaliasuser bin/vuserinfo bin/vpasswd bin/vdominfo bin/vdeluser bin/vadduser bin/vdeldomain bin/vadddomain bin/vaddaliasdomain)],
-        ($] >= 5.005 ? (     ## Add these new keywords supported since 5.005
-		ABSTRACT_FROM  => 'lib/Mail/Vpostmail.pm', # retrieve abstract from module
-		AUTHOR         => 'Avi Greenbury <vpostmail@avi.co>') : ()
+        ($] >= 5.005 ? (
+		ABSTRACT_FROM  => 'lib/Mail/Postfixadmin.pm',
+		AUTHOR         => 'Avi Greenbury <mail-postfixadmin@code.avi.co>') : ()
 	),
 );
