@@ -1202,7 +1202,7 @@ sub removeAliasUser{
 
 =head2 Utilities
 
-=head3 generatePassword
+=head3 generatePassword()
 
 Generates a password. It's what all the internal things that offer to
 generate passwords use.
@@ -1226,7 +1226,7 @@ sub generatePassword() {
 	}
 	return $password;
 }
-=head3 getOptions
+=head3 getOptions()
 
 Returns a hash of the options passed to the constructor plus whatever defaults 
 were set, in the form that the constructor expects.
@@ -1432,7 +1432,7 @@ sub _parsePostfixConfigFile{
 	return @dbiString;
 }
 
-=head3 _parseMysqlConfigFile
+=head3 _parseMysqlConfigFile()
 
 Parses a MySQL configuration file. Used by _createDBI() which is called by the constructor.
 
@@ -1577,7 +1577,7 @@ sub _fields(){
 }
 
 
-=head3 _dbCanStoreCleartestPasswords
+=head3 _dbCanStoreCleartestPasswords()
 
 Attempts to ascertain whether the DB can store cleartext passwords. Basically
 checks that whatever C<_fields()> reckons is the name of the field for storing
@@ -1596,7 +1596,7 @@ sub _dbCanStoreCleartextPasswords{
 	return 1;
 }
 
-=head3 _dbCanStoreGPGPasswords{
+=head3 _dbCanStoreGPGPasswords()
 
 Attempts to ascertain whether the DB can store GPG passwords. Basically
 checks that whatever C<_fields()> reckons is the name of the field for storing
@@ -1640,7 +1640,7 @@ sub _dbCanStoreGPGPasswords{
 	}
 }
 
-=head3 _createDBI
+=head3 _createDBI()
 
 Creates a DBI object. Called by the constructor and passed a reference
 to the C<%conf> hash, containing the configuration and contructor
@@ -1679,7 +1679,7 @@ sub _createDBI{
 }
 
 
-=head3 _dbSelect
+=head3 _dbSelect()
 
 Hopefully, a generic sub to pawn all db lookups off onto
 
