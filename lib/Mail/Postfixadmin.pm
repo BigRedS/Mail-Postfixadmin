@@ -157,16 +157,16 @@ sub new() {
 	my $self = {};
 
 	my %_tables = _tables();
-	$self->{'tables'} = _tables();
-	$self->{'fields'} = _fields();
+	$self->{'_tables'} = _tables();
+	$self->{'_fields'} = _fields();
 	$self->{'_postfixAdminConfig'} = _parsePostfixAdminConfigFile($conf{'PostfixAdminConfigFile'});
-	$self->{'dbi'} = _createDBI(\%conf);
+	$self->{'_dbi'} = _createDBI(\%conf);
 
 	if($conf{'storeCleartextPasswords'} == 1){
-		_warn ("DB has no support for cleartext passwords, but storeCleartextPasswords set") unless dbCanStoreCleartextPasswords($self);
+		_warn ("DB has no support for cleartext passwords, but storeCleartextPasswords set") unless _dbCanStoreCleartextPasswords($self);
 	}
 	if($conf{'storeGPGPasswords'} == 1){
-		_warn ("DB has no support for GPG passwords, but storeGPGPasswords set") unless dbCanStoreCleartextPasswords($self); 
+		_warn ("DB has no support for GPG passwords, but storeGPGPasswords set") unless _dbCanStoreCleartextPasswords($self); 
 	}
 
 	bless($self,$class);
@@ -363,8 +363,8 @@ sub domainExists(){
 	if($self->domainIsAlias($domain) > 0){
 		return $self->domainIsAlias($domain);
 	}
-	my $query = "select count(*) from $self->{tables}->{domain} where $self->{fields}->{domain}->{domain} = \'$domain\'";
-	my $sth = $self->{dbi}->prepare($query);
+	my $query = "select count(*) from $self->{'_tables'}->{domain} where $self->{'_fields'}->{domain}->{domain} = \'$domain\'";
+	my $sth = $self->{'_dbi'}->prepare($query);
 	$sth->execute;
 	my $count = ($sth->fetchrow_array())[0];
 	$self->{infostr} = $query;
@@ -398,8 +398,8 @@ sub userExists(){
 	if ($self->userIsAlias($user)){
 		return $self->userIsAlias($user);
 	}
-	my $query = "select count(*) from $self->{tables}->{mailbox} where $self->{fields}->{mailbox}->{username} = '$user'";
-	my $sth = $self->{dbi}->prepare($query);
+	my $query = "select count(*) from $self->{'_tables'}->{mailbox} where $self->{'_fields'}->{mailbox}->{username} = '$user'";
+	my $sth = $self->{'_dbi'}->prepare($query);
 	$sth->execute;
 	my $count = ($sth->fetchrow_array())[0];
 	$self->{infostr} = $query;
@@ -427,8 +427,8 @@ sub domainIsAlias(){
 
 	Carp::croak "No domain passed to domainIsAlias" if $domain eq '';
 
-	my $query = "select count(*) from $self->{tables}->{alias_domain} where $self->{fields}->{alias_domain}->{alias_domain} = '$domain'";
-	my $sth = $self->{dbi}->prepare($query);
+	my $query = "select count(*) from $self->{'_tables'}->{alias_domain} where $self->{'_fields'}->{alias_domain}->{alias_domain} = '$domain'";
+	my $sth = $self->{'_dbi'}->prepare($query);
 	$sth->execute;
 	my $count = ($sth->fetchrow_array())[0];
 	$self->{infostr} = $query;
@@ -482,8 +482,8 @@ sub userIsAlias{
 	my $self = shift;
 	my $user = shift;
 	if ($user eq ''){ Carp::croak "No user passed to userIsAlias";}
-	my $query = "select count(*) from $self->{tables}->{alias} where $self->{fields}->{alias}->{address} = '$user'";
-	my $sth = $self->{dbi}->prepare($query);
+	my $query = "select count(*) from $self->{'_tables'}->{alias} where $self->{'_fields'}->{alias}->{address} = '$user'";
+	my $sth = $self->{'_dbi'}->prepare($query);
 	$sth->execute;
 	my $count = ($sth->fetchrow_array())[0];
 	$self->{infostr} = $query;
@@ -583,24 +583,24 @@ sub getDomainInfo(){
 	Carp::croak "No domain passed to getDomainInfo" if $domain eq '';
 	return unless $self->domainExists($domain);
 
-	my $query = "select * from `$self->{tables}->{domain}` where $self->{fields}->{domain}->{domain} = '$domain'";
-	my $domaininfo = $self->{dbi}->selectrow_hashref($query);
+	my $query = "select * from `$self->{'_tables'}->{domain}` where $self->{'_fields'}->{domain}->{domain} = '$domain'";
+	my $domaininfo = $self->{'_dbi'}->selectrow_hashref($query);
 	
 	# This is exactly the same data acrobatics as getUserInfo() above, to get consistent
 	# output:
 	my %return;
-	my %domainhash = %{$self->{fields}->{domain}};
+	my %domainhash = %{$self->{'_fields'}->{domain}};
 	my ($k,$v);
-	while ( ($k,$v) = each ( %{$self->{fields}->{domain}} ) ){
+	while ( ($k,$v) = each ( %{$self->{'_fields'}->{domain}} ) ){
 		my $myname = $k;
 		my $theirname = $v;
 		my $info = $$domaininfo{$theirname};
 		$return{$myname} = $info;
 	}
 	$self->{infostr} = $query;
-	$query = "select username from `$self->{tables}->{mailbox}` where $self->{fields}->{mailbox}->{domain} = '$domain'";
+	$query = "select username from `$self->{'_tables'}->{mailbox}` where $self->{'_fields'}->{mailbox}->{domain} = '$domain'";
 	$self->{infostr}.=";".$query;
-	my $sth = $self->{dbi}->prepare($query);
+	my $sth = $self->{'_dbi'}->prepare($query);
 	$sth->execute;
 	my @mailboxes;
 	while (my @rows = $sth->fetchrow()){
@@ -704,18 +704,18 @@ sub changeCryptedPassword(){
 	my $cryptedPassword = shift;
 	my $clearPassword = shift;
 
-	my $query = "update $self->{'tables'}->{'mailbox'} set ";
-	$query.="`$self->{'fields'}->{'mailbox'}->{'password'}`= '$cryptedPassword'";
+	my $query = "update $self->{'_tables'}->{'mailbox'} set ";
+	$query.="`$self->{'_fields'}->{'mailbox'}->{'password'}`= '$cryptedPassword'";
 	if($self->{'storeCleartextPassword'} > 0){
-		$query.= ", `$self->{'fields'}->{'mailbox'}->{'password_clear'}` = '$clearPassword'";
+		$query.= ", `$self->{'_fields'}->{'mailbox'}->{'password_clear'}` = '$clearPassword'";
 	}
 	if($self->{'storeGPGPassword'} > 0){
 		my $gpgPassword = $self->cryptPasswordGPG($clearPassword);
-		$query.= ", `$self->{'fields'}->{'mailbox'}->{'password_gpg'}` = '$gpgPassword'";
+		$query.= ", `$self->{'_fields'}->{'mailbox'}->{'password_gpg'}` = '$gpgPassword'";
 	}
-	$query.="where `$self->{'fields'}->{'mailbox'}->{'username'}` = '$user'";
+	$query.="where `$self->{'_fields'}->{'mailbox'}->{'username'}` = '$user'";
 
-	my $sth = $self->{dbi}->prepare($query);
+	my $sth = $self->{'_dbi'}->prepare($query);
 	$sth->execute();
 
 	return $cryptedPassword;
@@ -777,14 +777,14 @@ sub createDomain(){
 	$opts{active} = '1' unless exists($opts{active});
 	$opts{transport} = 'virtual' unless exists($opts{quota});
 	foreach(keys(%opts)){
-		$fields.= $self->{fields}->{domain}->{$_}.", ";
+		$fields.= $self->{'_fields'}->{domain}->{$_}.", ";
 		$values.= "'$opts{$_}', ";;
 	}
 	$fields =~ s/, $//;
 	$values =~ s/, $//;
-	my $query = "insert into `$self->{tables}->{domain}` ";
+	my $query = "insert into `$self->{'_tables'}->{domain}` ";
 	$query.= " ( $fields ) values ( $values )";
-	my $sth = $self->{dbi}->prepare($query);
+	my $sth = $self->{'_dbi'}->prepare($query);
 	$sth->execute();	
 	$self->{infostr} = $query;
 	if($self->domainExists($domain)){
@@ -866,7 +866,7 @@ sub createUser(){
 	}
 	foreach(keys(%opts)){
 		unless( /_(clear|cryp)$/){
-			$fields.= $self->{fields}->{mailbox}->{$_}.", ";
+			$fields.= $self->{'_fields'}->{mailbox}->{$_}.", ";
 			$values.= "'$opts{$_}', ";
 		}
 	}
@@ -875,9 +875,9 @@ sub createUser(){
 	}
 	$values =~ s/, $//;
 	$fields =~ s/, $//;
-	my $query = "insert into `$self->{tables}->{mailbox}` ";
+	my $query = "insert into `$self->{'_tables'}->{mailbox}` ";
 	$query.= " ( $fields ) values ( $values )";
-	my $sth = $self->{dbi}->prepare($query);
+	my $sth = $self->{'_dbi'}->prepare($query);
 	$sth->execute();	
 	$self->{infostr} = $query;
 	$self->createAliasUser(
@@ -933,28 +933,28 @@ sub createAliasDomain {
 	unless($self->domainExists("domain" => $domain)){
 		$self->createDomain( "domain" => $domain);
 	}
-	my $fields = "$self->{fields}->{alias_domain}->{alias_domain}, $self->{fields}->{alias_domain}->{target_domain}";
+	my $fields = "$self->{'_fields'}->{alias_domain}->{alias_domain}, $self->{'_fields'}->{alias_domain}->{target_domain}";
 	my $values = " '$domain', '$opts{target}'";
 
-	$fields.=", $self->{fields}->{alias_domain}->{created}";
+	$fields.=", $self->{'_fields'}->{alias_domain}->{created}";
 	if(exists($opts{'created'})){
 		$values.=", '$opts{'created'}'";
 	}else{
 		$values.=", '".$self->_mysqlNow."'";
 	}
 
-	$fields.=", $self->{fields}->{alias_domain}->{modified}";
+	$fields.=", $self->{'_fields'}->{alias_domain}->{modified}";
 	if(exists($opts{'modified'})){
 		$values.=", '$opts{'modified'}'";
 	}else{
 		$values.=", '".$self->_mysqlNow."'";
 	}
 	if(exists($opts{'active'})){
-		$fields.=", $self->{fields}->{alias_domain}->{active}";
+		$fields.=", $self->{'_fields'}->{alias_domain}->{active}";
 		$values.=", '$opts{'active'}'";
 	}
-	my $query = "insert into $self->{tables}->{alias_domain} ( $fields ) values ( $values )";
-	my $sth = $self->{dbi}->prepare($query);
+	my $query = "insert into $self->{'_tables'}->{alias_domain} ( $fields ) values ( $values )";
+	my $sth = $self->{'_dbi'}->prepare($query);
 	$sth->execute;
 	if($self->domainExists($domain)){
 		$self->{infostr} = $query;
@@ -1045,17 +1045,17 @@ sub createAliasUser {
 	#TODO: createAliasUser should accept an array of targets
 	$opts{scalarTarget} = $opts{target};
 
-	my $fields = "$self->{fields}->{alias}->{address}, $self->{fields}->{alias}->{goto}, $self->{fields}->{alias}->{domain}";
+	my $fields = "$self->{'_fields'}->{alias}->{address}, $self->{'_fields'}->{alias}->{goto}, $self->{'_fields'}->{alias}->{domain}";
 	my $values = "\'$opts{alias}\', \'$opts{scalarTarget}\', \'$opts{domain}\'";
 	
-	$fields.=", $self->{fields}->{alias_domain}->{created}";
+	$fields.=", $self->{'_fields'}->{alias_domain}->{created}";
 	if(exists($opts{'created'})){
 		$values.=", '$opts{'created'}'";
 	}else{
 		$values.=", '".$self->_mysqlNow."'";
 	}
 
-	$fields.=", $self->{fields}->{alias_domain}->{modified}";
+	$fields.=", $self->{'_fields'}->{alias_domain}->{modified}";
 	if(exists($opts{'modified'})){
 		$values.=", $opts{'modified'}";
 	}else{
@@ -1063,11 +1063,11 @@ sub createAliasUser {
 	}
 
 	if(exists($opts{'active'})){
-		$fields.=", $self->{fields}->{alias_domain}->{active}";
+		$fields.=", $self->{'_fields'}->{alias_domain}->{active}";
 		$values.=", '$opts{'active'}'";
 	}
-	my $query = "insert into $self->{tables}->{alias} ( $fields ) values ( $values )";
-	my $sth = $self->{dbi}->prepare($query);
+	my $query = "insert into $self->{'_tables'}->{alias} ( $fields ) values ( $values )";
+	my $sth = $self->{'_dbi'}->prepare($query);
 	$sth->execute;
 	
 	if($self->userIsAlias($user)){
@@ -1099,8 +1099,8 @@ sub removeUser(){
 		$self->{infostr} = "User doesn't exist ($user) ";
 		return 2;
 	}
-	my $query = "delete from $self->{tables}->{mailbox} where $self->{fields}->{mailbox}->{username} = '$user'";
-	my $sth = $self->{dbi}->prepare($query);
+	my $query = "delete from $self->{'_tables'}->{mailbox} where $self->{'_fields'}->{mailbox}->{username} = '$user'";
+	my $sth = $self->{'_dbi'}->prepare($query);
 	$sth->execute();
 	$self->{infostr} = $query;
 	$self->removeAliasUser($user);
@@ -1137,8 +1137,8 @@ sub removeDomain(){
 	if($self->domainIsAlias($domain)){
 		$self->removeAliasDomain($domain);
 	}
-	my $query = "delete from $self->{tables}->{domain} where $self->{fields}->{domain}->{domain} = '$domain'";
-	my $sth = $self->{dbi}->prepare($query);
+	my $query = "delete from $self->{'_tables'}->{domain} where $self->{'_fields'}->{domain}->{domain} = '$domain'";
+	my $sth = $self->{'_dbi'}->prepare($query);
 	$sth->execute;
 	if ($self->domainExists($domain)){
 		$self->{errstr} = "Everything appeared successful but domain $domain still exists";
@@ -1169,8 +1169,8 @@ sub removeAliasDomain{
 		$self->{infostr} = "Domain is not an alias ($domain)";
 		return 3;
 	}
-	my $query = "delete from $self->{tables}->{alias_domain} where $self->{fields}->{alias_domain}->{alias_domain} = '$domain'";
-	my $sth = $self->{dbi}->prepare($query);
+	my $query = "delete from $self->{'_tables'}->{alias_domain} where $self->{'_fields'}->{alias_domain}->{alias_domain} = '$domain'";
+	my $sth = $self->{'_dbi'}->prepare($query);
 	$sth->execute;
 }
 
@@ -1191,23 +1191,121 @@ sub removeAliasUser{
 		$self->{infoStr} = "user is not an alias ($user)";
 		return 3;
 	}
-	my $query = "delete from $self->{tables}->{alias} where $self->{fields}->{alias}->{address} = '$user'";
-	my $sth = $self->{dbi}->prepare($query);
+	my $query = "delete from $self->{'_tables'}->{alias} where $self->{'_fields'}->{alias}->{address} = '$user'";
+	my $sth = $self->{'_dbi'}->prepare($query);
 	$sth->execute;
 	return 1;
 }
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
  # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+=head2 Utilities
+
+=head3 generatePassword
+
+Generates a password. It's what all the internal things that offer to
+generate passwords use.
+
+=cut
+
+sub generatePassword() {
+	my $self = shift;
+	my $length = shift;
+	Carp::croak "generatePassword() called with no arguments (length required)" if $length =~ /^$/;
+	Carp::croak "generatePassword() called with non-numeric argument (length expected)" if $length !~ /^\s*\d+\.?\d*\s*$/;
+	my @characters = qw/a b c d e f g h i j k l m n o p q r s t u v w x y z
+			    A B C D E F G H I J K L M N O P Q R S T U V W X Y Z 
+			    1 2 3 4 5 6 7 8 9 0 - =
+			    ! " $ % ^ & * ( ) _ +
+			    [ ] ; # , . : @ ~ < > ?
+			  /;
+	my $password;
+	for( my $i = 0; $i<$length; $i++ ){
+		$password .= $characters[rand($#characters)];
+	}
+	return $password;
+}
+=head3 getOptions
+
+Returns a hash of the options passed to the constructor plus whatever defaults 
+were set, in the form that the constructor expects.
+
+=cut
+
+sub getOptions{
+	my $self = shift;
+	my %params = %{$self->{_params}};
+	return %params;
+}
+=head3 getTables getFields setTables setFields
+
+C<get>ters return a hash defining the table and field names respectively, the
+C<set>ters accept hashes in the same format for redefining the table layout.
+
+Note that this is a representation of what the object assumes the db to be - 
+there's no guessing at all as to what shape the db is so you'll need to tell
+the object through these if you want to change them.
+
+=cut
+
+sub getTables(){
+	my $self = shift;
+	return $self->{'_tables'}
+}
+sub getFields(){
+	my $self = shift;
+	return $self->{'_fields'}
+}
+
+sub setTables(){
+	my $self = shift;
+	$self->{'_tables'} = @_;
+	return $self->{'_tables'};
+}
+
+sub setFields(){
+	my $self = shift;
+	$self->{'_fields'} = @_;
+	return $self->{'_fields'};
+}
+
+
+=head3 getdbCredentials()
+
+Returns a hash of the db Credentials as expected by the constructor. Keys are 
+C<dbi> C<dbuser> and C<dbpass>. These are the three arguments for the DBI 
+constructor; C<dbi> is the full connection string (including C<DBI:mysql> at 
+the beginning.
+
+=cut
+
+sub getdbCredentials{
+	my $self = shift;
+	my %return;
+	foreach(qw/dbi dbuser dbpass/){
+		$return{$_} = $self->{_params}{$_};
+	}
+	return %return;
+}
+
+=head3 version()
+
+Returns the version string
+
+=cut;
+
 sub version{
 	my $self = shift;
 	return $VERSION
 }
 
 
-=head3
+=head2 Private Methods
 
-_createMailboxPath
+If you use these and they eat your cat feel free to tell me, but don't expect me to fix it.
+
+=head3 _createMailboxPath()
 
 Deals with the 'mailboxes' bit of the config, the 'canonical' version of which can be found
 about halfway down create-mailbox.php:
@@ -1258,7 +1356,13 @@ sub _createMailboxPath(){
 }
 
 
+=head3 _findPostfixAdminConfigFile()
 
+Tries to find a PostfixAdmin config file, checks /var/www/postfixadmin/config.inc.php 
+and /etc/phpmyadmin/config.inc.php. Called by C<_parsePostfixAdminConfigFile()> unless
+it's passed a path
+
+=cut
 
 sub _findPostfixAdminConfigFile(){
 	my @candidates = qw# /var/www/postfixadmin/config.inc.php /etc/phpmyadmin/config.inc.php#;
@@ -1268,6 +1372,12 @@ sub _findPostfixAdminConfigFile(){
 	}
 }
 
+=head3 _parsePostfixAdminConfigFile()
+
+Returns a hash reference that's an approximation of the $CONF associative array used
+by PostfixAdmin for its configuration.
+
+=cut
 sub _parsePostfixAdminConfigFile(){
 	my $self = shift;
 	my $file = shift || _findPostfixAdminConfigFile();
@@ -1281,11 +1391,12 @@ sub _parsePostfixAdminConfigFile(){
 	return \%pfaConf;
 }
 
+=head3 _parsePostfixConfigFile()
 
+Postfix config files trying to find some DB credentials.
 
-# dbConnection
-# Deduces db details, returns an array of arguments to a 
-# $dbi->connect()
+=cut
+
 sub _parsePostfixConfigFile{
 	my $confFile = shift;
 	my $maincf = shift;
@@ -1320,6 +1431,13 @@ sub _parsePostfixConfigFile{
 	my @dbiString = ("DBI:mysql:$db{'name'}:host=$db{'host'}", "$db{'user'}", "$db{'pass'}");
 	return @dbiString;
 }
+
+=head3 _parseMysqlConfigFile
+
+Parses a MySQL configuration file. Used by _createDBI() which is called by the constructor.
+
+=cut
+
 sub _parseMysqlConfigFile{
 	local $/ = "\n";
 	my $confFile = shift;
@@ -1342,77 +1460,13 @@ sub _parseMysqlConfigFile{
 }
 
 
-=head2 Utilities
-
-=head3 getOptions
-
-Returns a hash of the options passed to the constructor plus whatever defaults 
-were set, in the form that the constructor expects.
-
-=cut
-
-sub getOptions{
-	my $self = shift;
-	my %params = %{$self->{_params}};
-	return %params;
-}
-=head3 getTables getFields setTables setFields
-
-C<get>ters return a hash defining the table and field names respectively, the
-C<set>ters accept hashes in the same format for redefining the table layout.
-
-Note that this is a representation of what the object assumes the db to be - 
-there's no guessing at all as to what shape the db is so you'll need to tell
-the object through these if you want to change them.
-
-=cut
-
-sub getTables(){
-	my $self = shift;
-	return $self->{tables}
-}
-sub getFields(){
-	my $self = shift;
-	return $self->{fields}
-}
-
-sub setTables(){
-	my $self = shift;
-	$self->{tables} = @_;
-	return $self->{tables};
-}
-
-sub setFields(){
-	my $self = shift;
-	$self->{fields} = @_;
-	return $self->{fields};
-}
-
-
-=head3 getdbCredentials()
-
-Returns a hash of the db Credentials as expected by the constructor. Keys are 
-C<dbi> C<dbuser> and C<dbpass>. These are the three arguments for the DBI 
-constructor; C<dbi> is the full connection string (including C<DBI:mysql> at 
-the beginning.
-
-=cut
-
-sub getdbCredentials{
-	my $self = shift;
-	my %return;
-	foreach(qw/dbi dbuser dbpass/){
-		$return{$_} = $self->{_params}{$_};
-	}
-	return %return;
-}
 
 =cut
 
 sub dbCanStoreCleartextPasswords(){
 	my $self = shift;
-	my @fields = $self->{dbi}->selectrow_array("show columns from $self->{tables}->{mailbox}");
-	if (grep(/($self->{fields}->{mailbox}->{password_cleartext})/, @fields)){
+	my @fields = $self->{'_dbi'}->selectrow_array("show columns from $self->{'_tables'}->{mailbox}");
+	if (grep(/($self->{'_fields'}->{mailbox}->{password_cleartext})/, @fields)){
 		return $1;
 	}else{
 		return
@@ -1424,12 +1478,21 @@ sub dbCanStoreCleartextPasswords(){
 Returns the current time in a format suitable for passing straight to the database. Currently is just in MySQL 
 datetime format (YYYY-MM-DD HH-MM-SS).
 
+This shouldn't need to exist, really.
+
 =cut
 
 sub now{
 	return _mysqlNow();
 }
 
+
+=head3 _tables()
+
+Returns a hashref describing the default tablee schema. The keys are the names as used in this
+module and the values should be the names of the tables themselves.
+
+=cut
 
 sub _tables(){
 	my %tables = ( 
@@ -1449,6 +1512,13 @@ sub _tables(){
 	);
 	return \%tables;
 }
+
+=head3 _fields()
+
+Returns a hashref describing the default field names. The keys are the names as used in this
+module and the values should be the names of the fields themselves.
+
+=cut
 
 sub _fields(){
 	my %fields;
@@ -1506,23 +1576,41 @@ sub _fields(){
 	return \%fields;
 }
 
-sub dbCanStoreCleartextPasswords{
+
+=head3 _dbCanStoreCleartestPasswords
+
+Attempts to ascertain whether the DB can store cleartext passwords. Basically
+checks that whatever C<_fields()> reckons is the name of the field for storing
+cleartext passwords in is the name of a column that exists in the db.
+
+=cut
+
+sub _dbCanStoreCleartextPasswords{
 	my $self = shift;
-	my $dbName = (split(/:/, $self->{'_params'}->{'dbi'}))[2];
-	my $tableName = $self->{'tables'}->{'mailbox'};
-	my $fieldName = $self->{'fields'}->{'mailbox'}->{'password_clear'};
-	if(_fieldExists($self->{'dbi'}, $dbName, $tableName, $fieldName)){
+	my $dbName = (split(/:/, $self->{'_params'}->{'_dbi'}))[2];
+	my $tableName = $self->{'_tables'}->{'mailbox'};
+	my $fieldName = $self->{'_fields'}->{'mailbox'}->{'password_clear'};
+	if(_fieldExists($self->{'_dbi'}, $dbName, $tableName, $fieldName)){
 		return;
 	}
 	return 1;
 }
-sub dbCanStoreGPGPasswords{
+
+=head3 _dbCanStoreGPGPasswords{
+
+Attempts to ascertain whether the DB can store GPG passwords. Basically
+checks that whatever C<_fields()> reckons is the name of the field for storing
+GPG passwords in is the name of a column that exists in the db.
+
+=cut 
+
+sub _dbCanStoreGPGPasswords{
 	my $self = shift;
 	if ($self->{'storeGPGPassword'} > 0){
-		my $dbName = (split(/:/, $self->{'_params'}->{'dbi'}))[2];
-		my $tableName = $self->{'tables'}->{'mailbox'};
-		my $fieldName = $self->{'fields'}->{'mailbox'}->{'password_gpg'};
-		if (_fieldExists($self->{'dbi'}, $dbName, $tableName, $fieldName)){
+		my $dbName = (split(/:/, $self->{'_params'}->{'_dbi'}))[2];
+		my $tableName = $self->{'_tables'}->{'mailbox'};
+		my $fieldName = $self->{'_fields'}->{'mailbox'}->{'password_gpg'};
+		if (_fieldExists($self->{'_dbi'}, $dbName, $tableName, $fieldName)){
 			# If we are supposed to be storing GPG passwords, we need the
 			# appropriate module.
 			if (eval {require Crypt::GPG}){
@@ -1551,12 +1639,20 @@ sub dbCanStoreGPGPasswords{
 	return;
 	}
 }
-# Creates a DBI object. For use by the constructor.
+
+=head3 _createDBI
+
+Creates a DBI object. Called by the constructor and passed a reference
+to the C<%conf> hash, containing the configuration and contructor
+options.
+
+=cut
+
 sub _createDBI{
 	my $conf = shift;
 	# Here we build a DBI object using whatever DB credentials we can find:
 	my @_dbi;
-	unless(exists($conf->{'dbi'})){
+	unless(exists($conf->{'_dbi'})){
 		if($conf->{mysqlconf} =~ m@/@){
 			@_dbi = _parseMysqlConfigFile($conf->{mysqlconf});
 		}else{
@@ -1565,12 +1661,12 @@ sub _createDBI{
 			}
 			@_dbi = _parsePostfixConfigFile($conf->{maincf});
 		}	
-		$conf->{dbi} = $_dbi[0];
+		$conf->{'_dbi'} = $_dbi[0];
 		$conf->{dbuser} = $_dbi[1];
 		$conf->{dbpass} = $_dbi[2];
 	}
 	my $dbi = DBI->connect(
-		$conf->{dbi},
+		$conf->{'_dbi'},
 		$conf->{dbuser},
 		$conf->{dbpass}
 	);
@@ -1581,19 +1677,27 @@ sub _createDBI{
 		return $dbi;
 	}
 }
-	
-# Hopefully, a generic sub to pawn all db lookups off onto
-#  _dbSelect(
-#       table     => 'table',
-#       fields    => [ field1, field2, field2],
-#	equals	  => ["field", "What it equals"],
-#	like      => ["field", "what it's like"],
-#       orderby   => 'field4 desc'
-#	count     => something
-#  }
-# If count *exists*, a count is returned. If not, it isn't.
-# Returns an array of hashes, each hash representing a row from
-# the db with keys as field names.
+
+
+=head3 _dbSelect
+
+Hopefully, a generic sub to pawn all db lookups off onto
+
+	_dbSelect(
+		table     => 'table',
+		fields    => [ field1, field2, field2],
+		equals	  => ["field", "What it equals"],
+		like      => ["field", "what it's like"],
+		orderby   => 'field4 desc'
+		count     => something
+	}
+
+If count *exists*, a count is returned. If not, it isn't.
+Returns an array of hashes, each hash representing a row from
+the db with keys as field names.
+
+=cut
+
 sub _dbSelect {
 	my $self = shift;
 	my %opts = @_;
@@ -1601,17 +1705,17 @@ sub _dbSelect {
 	my @return;
 	my @fields;
 
-	if(exists($self->{'tables'}->{$table})){
-		$table = $self->{'tables'}->{$table};
+	if(exists($self->{'_tables'}->{$table})){
+		$table = $self->{'_tables'}->{$table};
 	}else{
 		Carp::croak "Table '$table' not defined in %_tables";
 	}
 
-	foreach my $field (@{$opts{'fields'}}){
-		unless(exists($self->{fields}->{$table}->{$field})){
-			Carp::croak "Field $self->{fields}->{$table}->{$field} in table $table not defined in %_fields";
+	foreach my $field (@{$opts{'_fields'}}){
+		unless(exists($self->{'_fields'}->{$table}->{$field})){
+			Carp::croak "Field $self->{'_fields'}->{$table}->{$field} in table $table not defined in %_fields";
 		}
-		push (@fields, $self->{fields}->{$table}->{$field});
+		push (@fields, $self->{'_fields'}->{$table}->{$field});
 	}
 
 	my $query = "select ";
@@ -1623,24 +1727,24 @@ sub _dbSelect {
 	$query .= " from $table ";
 	if ($opts{'equals'} > 0){
 		my ($field,$value) = @{$opts{'equals'}};
-		if (exists($self->{fields}->{$table}->{$field})){
-			$field = $self->{fields}->{$table}->{$field};
+		if (exists($self->{'_fields'}->{$table}->{$field})){
+			$field = $self->{'_fields'}->{$table}->{$field};
 		}else{
 			Carp::croak "Field $field in table $table (used in SQL conditional) not defined";
 		}
 		$query .= " where $field = '$value' ";
 	}elsif ($opts{'like'} > 0){
 		my ($field,$value) = @{$opts{'like'}};
-		if (exists($self->{fields}->{$table}->{$field})){
-			$field = $self->{fields}->{$table}->{$field};
+		if (exists($self->{'_fields'}->{$table}->{$field})){
+			$field = $self->{'_fields'}->{$table}->{$field};
 		}else{
 			Carp::croak "Field $field in table $table (used in SQL conditional) not defined";
 		}
-		$field = $self->{fields}->{$table}->{$field};
+		$field = $self->{'_fields'}->{$table}->{$field};
 		$query .= " where $field like '$value'";
 	}
-	my $dbi = $self->{'dbi'};
-	my $sth = $self->{dbi}->prepare($query);
+	my $dbi = $self->{'_dbi'};
+	my $sth = $self->{'_dbi'}->prepare($query);
 	$sth->execute() or Carp::croak "execute failed: $!";
 	while(my $row = $sth->fetchrow_hashref){
 		push(@return, $row);
@@ -1648,8 +1752,13 @@ sub _dbSelect {
 	return @return;
 }
 
-# Returns a timestamp of its time of execution in a format ready for inserting into MySQL
-# (YYYY-MM-DD hh:mm:ss)
+=head3 _mysqlNow()
+
+ Returns a timestamp of its time of execution in a format ready for inserting into MySQL
+ (YYYY-MM-DD hh:mm:ss)
+
+=cut
+
 sub _mysqlNow() {
 	
 	my ($y,$m,$d,$hr,$mi,$se)=(localtime(time))[5,4,3,2,1,0];
@@ -1658,25 +1767,13 @@ sub _mysqlNow() {
 	return "$date $time";
 }
 
-sub generatePassword() {
-	my $self = shift;
-	my $length = shift;
-	Carp::croak "generatePassword() called with no arguments (length required)" if $length =~ /^$/;
-	Carp::croak "generatePassword() called with non-numeric argument (length expected)" if $length !~ /^\s*\d+\.?\d*\s*$/;
-	my @characters = qw/a b c d e f g h i j k l m n o p q r s t u v w x y z
-			    A B C D E F G H I J K L M N O P Q R S T U V W X Y Z 
-			    1 2 3 4 5 6 7 8 9 0 - =
-			    ! " $ % ^ & * ( ) _ +
-			    [ ] ; # , . : @ ~ < > ?
-			  /;
-	my $password;
-	for( my $i = 0; $i<$length; $i++ ){
-		$password .= $characters[rand($#characters)];
-	}
-	return $password;
-}
 
-# Check whether a field exists in the db. Must exist in the _field hash.
+=head3 _fieldExists()
+
+Checks whether a field exists in the db. Must exist in the _field hash.
+
+=cut
+
 sub _fieldExists() {
 	my ($dbi,$dbName,$tableName,$fieldName) = @_;
 	my $query = "select count(*) from information_schema.COLUMNS where ";
@@ -1688,6 +1785,12 @@ sub _fieldExists() {
 	return($count) if ($count > 0);
 	return;
 }
+
+=head3 _warn() and _error()
+
+Handy wrappers for when I want to simply warn or spit out an error.
+
+=cut
 
 sub _warn{
 	my $message = shift;
@@ -1723,7 +1826,7 @@ sub _error{
 C<dbi> is the dbi object used by the rest of the module, having guessed/set the appropriate credentials. 
 You can use it as you would the return directly from a $dbi->connect:
 
-  my $sth = $p->{dbi}->prepare($query);
+  my $sth = $p->{'_dbi'}->prepare($query);
   $sth->execute;
 
 =head3 params
