@@ -74,7 +74,7 @@ three arguments to a C<DBI-E<gt>connect> (they are used for exactly this):
 	 dbpass => 'password'
   );
 
-Thirdly, you may pass the  path to C<main.cf> to the constructor. This causes the 
+Thirdly, you may pass the path to C<main.cf> to the constructor. This causes the 
 constructor to parse C<main.cf> to find the path to one of Postfix's MySQL config
 files. The first of these is then parsed to find the MySQL credentials.
 
@@ -86,6 +86,21 @@ files. The first of these is then parsed to find the MySQL credentials.
 If C<main.cf> is passed, the C<dbi>, C<dbuser> and C<dbpass> values are ignored 
 and overwritten by data found in the files. C<main.cf> is deemed to have been 
 'passed' if its value contains a forward-slash ('C</>').
+
+=head3 PostfixAdmin configuration file
+
+In order to replicate the behaviour of the PostfixAdmin web UI, this module
+attempts to parse its config file. It wont complain if it's not passed one, but
+behaviour in this situation is undefined.
+
+By default, it will test for C</etc/postfixadmin/config.inc.php> and 
+C</var/www/postfixadmin/config.inc.php>, and the first one which is a file will 
+be used. You may pass the path to your config file with the C<PostfixAdminConfigFile> 
+option:
+
+  my $v = Mail::Postfixadmin->new)
+  	PostfixAdminConfigFile => '/home/alice/public_html/postfixadmin/config.inc.php';
+  )
 
 =head3 Password storage
 
@@ -146,14 +161,9 @@ sub new() {
 	# And a hash of hashes of hashes we use to store the field names
 	my %_fields = &_fields;
 	$self->{fields} = \%_fields;
-	# Dovecot config:
-	my @doveconf;
-	eval{
-		@doveconf = qx@doveconf 2>/dev/null@ or die "$!";
-	};
-	$self->{'_doveconf'} = \@doveconf unless($@);
+	
+	$self->{'_postfixAdminConfig'} = _parsePostfixAdminConfigFile($self->{'_params'}->{'PostfixAdminConfigFile'});
 
-	$self->{'_postfixAdminConfig'} = _parsePostfixAdminConfigFile();
 
 	# Here we build a DBI object using whatever DB credentials we can find:
 	my @_dbi;
@@ -228,8 +238,6 @@ sub new() {
 
 
 	}
-#	$self->{mailLocation} = (reverse(grep(/\s*mail_location/, qx/$self->{_doveconf}/)))[0];
-#	chomp $self->{mailLocation};
 	bless($self,$class);
 	return $self;
 }
@@ -1329,8 +1337,8 @@ sub _findPostfixAdminConfigFile(){
 }
 
 sub _parsePostfixAdminConfigFile(){
-	my $file = _findPostfixAdminConfigFile();
-	open(my $fh, "<", $file) or die "Error parsng PostfixAdmin config file '$file' : $!";
+	my $file = shift || _findPostfixAdminConfigFile();
+	open(my $fh, "<", $file) or _warn("Error parsing PostfixAdmin config file '$file' : $!");
 	my %pfaConf;
 	while(<$fh>){
 		if(/^\s*\$CONF\['([^']+)'\]\s*=\s*'?([^']*)'?\s*;\s*$/){
