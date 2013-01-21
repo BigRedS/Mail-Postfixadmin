@@ -148,99 +148,31 @@ for example, change the key used later on with:
 
 sub new() {
 	my $class = shift;
-	my %params = @_;
-	my $self = {};
-	foreach(keys(%params)){
-		$self->{_params}->{$_} = $params{$_};
-	}
-	# Set some variables for future use:
-	$self->{version} = $VERSION;
-	# This is a hash-of-hashes we use to store the table names
-	my %_tables = &_tables;
-	$self->{tables} = \%_tables;
-	# And a hash of hashes of hashes we use to store the field names
-	my %_fields = &_fields;
-	$self->{fields} = \%_fields;
-	
-	$self->{'_postfixAdminConfig'} = _parsePostfixAdminConfigFile($self->{'_params'}->{'PostfixAdminConfigFile'});
-
-
-	# Here we build a DBI object using whatever DB credentials we can find:
-	my @_dbi;
-	unless(exists($self->{'_params'}->{'dbi'})){
-		if($self->{_params}->{mysqlconf} =~ m@/@){
-			@_dbi = _parseMysqlConfigFile($self->{_params}->{mysqlconf});
-		}else{
-			unless(exists($self->{_params}->{maincf})){
-				$self->{_params}->{maincf} = '/etc/postfix/main.cf';
-			}
-			@_dbi = _parsePostfixConfigFile($self->{_params}->{maincf});
-		}	
-		$self->{_params}->{dbi} = $_dbi[0];
-		$self->{_params}->{dbuser} = $_dbi[1];
-		$self->{_params}->{dbpass} = $_dbi[2];
-	}
-	$self->{dbi} = DBI->connect(
-		$self->{_params}->{dbi},
-		$self->{_params}->{dbuser},
-		$self->{_params}->{dbpass}
+	my %defaults = (
+		something => '1',
 	);
-	if (!$self->{dbi}){
-		Carp::croak "No dbi object created";
+	my %params = @_;
+	my %conf = (%defaults, %params);
+
+	my $self = {};
+
+	my %_tables = _tables();
+	$self->{'tables'} = _tables();
+	$self->{'fields'} = _fields();
+	$self->{'_postfixAdminConfig'} = _parsePostfixAdminConfigFile($conf{'PostfixAdminConfigFile'});
+	$self->{'dbi'} = _createDBI(\%conf);
+
+	if($conf{'storeCleartextPasswords'} == 1){
+		_warn ("DB has no support for cleartext passwords, but storeCleartextPasswords set") unless dbCanStoreCleartextPasswords($self);
+	}
+	if($conf{'storeGPGPasswords'} == 1){
+		_warn ("DB has no support for GPG passwords, but storeGPGPasswords set") unless dbCanStoreCleartextPasswords($self); 
 	}
 
-	
-	# And now check whether we're supposed to be storing cleartext passwords and,
-	# if so, whether we're able to:
-	$self->{storeCleartextPassword} = $self->{'_params'}->{'storeCleartextPassword'} || 0;
-	if($self->{storeCleartextPassword} == 1){
-		my $dbName = (split(/:/, $self->{'_params'}->{'dbi'}))[2];
-		my $tableName = $self->{'tables'}->{'mailbox'};
-		my $fieldName = $self->{'fields'}->{'mailbox'}->{'password_clear'};
-		unless(_fieldExists($self->{'dbi'}, $dbName, $tableName, $fieldName)){
-			Carp::croak "storeCleartextPassword set to non-zero but table '$tableName' has no field '$fieldName' to store cleartext passwords in";
-		}
-	}
-
-	# And the same for GPG passwords
-	$self->{'storeGPGPassword'} = $self->{'_params'}->{'storeGPGPassword'} || 0;
-	if ($self->{'storeGPGPassword'} > 0){
-		my $dbName = (split(/:/, $self->{'_params'}->{'dbi'}))[2];
-		my $tableName = $self->{'tables'}->{'mailbox'};
-		my $fieldName = $self->{'fields'}->{'mailbox'}->{'password_gpg'};
-		if (_fieldExists($self->{'dbi'}, $dbName, $tableName, $fieldName)){
-			# If we are supposed to be storing GPG passwords, we need the
-			# appropriate module.
-			if (eval {require Crypt::GPG}){
-				Crypt::GPG->import();
-			}else{
-				Carp::croak "Error require()ing Crypt::GPG to allow support for storeGPGPassword:\n$@";
-			}
-			my $gpg = new Crypt::GPG;
-			$self->{'gpgRecipient'} = $self->{'_params'}->{'gpgRecipient'};
-			if ($self->{'gpgRecipient'} !~ /.+/){
-				Carp::croak "GPG support requires a value for gpgRecipient be passed to the constructor";
-			}
-			$self->{'_gpgBinary'} = $self->{'_params'}->{'gpgBinary'} || '/usr/bin/gpg';
-			unless( -x $self->{'_gpgBinary'}){
-				Carp::croak "GPG binary at '$self->{'_gpgbinary'}' either non-existant or not-executable";
-			}
-			$gpg->gpgbin($self->{'_gpgBinary'});
-			$self->{'gpgSecretKey'} = $self->{'_params'}->{'gpgSecretKey'} || Carp::croak "storeGPGpassword set but gpgSecretKey not set";
-			unless($gpg->keydb($self->{'gpgRecipient'})){
-				Carp::croak "No key with identifier '$self->{'gpgRecipient'}' in db";
-			}
-
-			$self->{'gpg'} = $gpg;
-		}else{
-			Carp::croak "storeGPGPassword is set non-zero but table '$tableName' has no field '$fieldName' to store GPG-encrypted passwords in";
-		}
-
-
-	}
 	bless($self,$class);
 	return $self;
 }
+
 
 
 =head1 METHODS
@@ -1337,6 +1269,7 @@ sub _findPostfixAdminConfigFile(){
 }
 
 sub _parsePostfixAdminConfigFile(){
+	my $self = shift;
 	my $file = shift || _findPostfixAdminConfigFile();
 	open(my $fh, "<", $file) or _warn("Error parsing PostfixAdmin config file '$file' : $!");
 	my %pfaConf;
@@ -1514,7 +1447,7 @@ sub _tables(){
 	        'vacation'      => 'vacation',
 	        'vacation_notification' => 'vacation_notification'
 	);
-	return %tables;
+	return \%tables;
 }
 
 sub _fields(){
@@ -1570,10 +1503,84 @@ sub _fields(){
 				'modified'	=> 'modified',
 				'active'	=> 'active'
 	};
-	return %fields;
+	return \%fields;
 }
 
-
+sub dbCanStoreCleartextPasswords{
+	my $self = shift;
+	my $dbName = (split(/:/, $self->{'_params'}->{'dbi'}))[2];
+	my $tableName = $self->{'tables'}->{'mailbox'};
+	my $fieldName = $self->{'fields'}->{'mailbox'}->{'password_clear'};
+	if(_fieldExists($self->{'dbi'}, $dbName, $tableName, $fieldName)){
+		return;
+	}
+	return 1;
+}
+sub dbCanStoreGPGPasswords{
+	my $self = shift;
+	if ($self->{'storeGPGPassword'} > 0){
+		my $dbName = (split(/:/, $self->{'_params'}->{'dbi'}))[2];
+		my $tableName = $self->{'tables'}->{'mailbox'};
+		my $fieldName = $self->{'fields'}->{'mailbox'}->{'password_gpg'};
+		if (_fieldExists($self->{'dbi'}, $dbName, $tableName, $fieldName)){
+			# If we are supposed to be storing GPG passwords, we need the
+			# appropriate module.
+			if (eval {require Crypt::GPG}){
+				Crypt::GPG->import();
+			}else{
+				_error ("Error require()ing Crypt::GPG to allow support for storeGPGPassword:\n$@");
+			}
+			my $gpg = new Crypt::GPG;
+			$self->{'gpgRecipient'} = $self->{'_params'}->{'gpgRecipient'};
+			if ($self->{'gpgRecipient'} !~ /.+/){
+				_error ("GPG support requires a value for gpgRecipient be passed to the constructor");
+			}
+			$self->{'_gpgBinary'} = $self->{'_params'}->{'gpgBinary'} || '/usr/bin/gpg';
+			unless( -x $self->{'_gpgBinary'}){
+				_error ("GPG binary at '$self->{'_gpgbinary'}' either non-existant or not-executable");
+			}
+			$gpg->gpgbin($self->{'_gpgBinary'});
+			$self->{'gpgSecretKey'} = $self->{'_params'}->{'gpgSecretKey'} || _error ("storeGPGpassword set but gpgSecretKey not set");
+			unless($gpg->keydb($self->{'gpgRecipient'})){
+				_error ("No key with identifier '$self->{'gpgRecipient'}' in db");
+			}
+			$self->{'gpg'} = $gpg;
+		}else{
+			_error ("storeGPGPassword is set non-zero but table '$tableName' has no field '$fieldName' to store GPG-encrypted passwords in");
+		}
+	return;
+	}
+}
+# Creates a DBI object. For use by the constructor.
+sub _createDBI{
+	my $conf = shift;
+	# Here we build a DBI object using whatever DB credentials we can find:
+	my @_dbi;
+	unless(exists($conf->{'dbi'})){
+		if($conf->{mysqlconf} =~ m@/@){
+			@_dbi = _parseMysqlConfigFile($conf->{mysqlconf});
+		}else{
+			unless(exists($conf->{maincf})){
+				$conf->{maincf} = '/etc/postfix/main.cf';
+			}
+			@_dbi = _parsePostfixConfigFile($conf->{maincf});
+		}	
+		$conf->{dbi} = $_dbi[0];
+		$conf->{dbuser} = $_dbi[1];
+		$conf->{dbpass} = $_dbi[2];
+	}
+	my $dbi = DBI->connect(
+		$conf->{dbi},
+		$conf->{dbuser},
+		$conf->{dbpass}
+	);
+	if (!$dbi){
+		_warn("No dbi object created");
+		return;
+	}else{
+		return $dbi;
+	}
+}
 	
 # Hopefully, a generic sub to pawn all db lookups off onto
 #  _dbSelect(
