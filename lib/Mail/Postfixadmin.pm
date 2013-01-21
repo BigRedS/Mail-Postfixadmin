@@ -153,7 +153,7 @@ sub new() {
 	};
 	$self->{'_doveconf'} = \@doveconf unless($@);
 
-	$self->{'_postfixAdminConfig'} = $self->_parsePostfixAdminConfig();
+	$self->{'_postfixAdminConfig'} = _parsePostfixAdminConfigFile();
 
 	# Here we build a DBI object using whatever DB credentials we can find:
 	my @_dbi;
@@ -869,7 +869,7 @@ Defaults are mostly sane where values aren't explicitly passed:
  username	required; no default
  password	null
  name		null
- maildir 	username with a '/' appended to it
+ maildir 	deduced from PostfixAdmin config. 
  quota		MySQL default (normally zero, which represents infinite)
  local_part	the part of the username to the left of the first '@'
  domain		the part of the username to the right of the last '@'
@@ -906,7 +906,7 @@ sub createUser(){
 	}
 
 	unless(exists $opts{maildir}){
-		$opts{maildir} = $opts{username}."/";
+		$opts{maildir} = $self->_createMailboxPath($user);
 	}
 	unless(exists $opts{local_part}){
 		if($opts{username} =~ /^(.+)\@/){
@@ -1263,6 +1263,62 @@ sub version{
 	return $VERSION
 }
 
+
+=head3
+
+_createMailboxPath
+
+Deals with the 'mailboxes' bit of the config, the 'canonical' version of which can be found
+about halfway down create-mailbox.php:
+
+  // Mailboxes
+  // If you want to store the mailboxes per domain set this to 'YES'.
+  // Examples:
+  //   YES: /usr/local/virtual/domain.tld/username@domain.tld
+  //   NO:  /usr/local/virtual/username@domain.tld
+  $CONF['domain_path'] = 'YES';
+  // If you don't want to have the domain in your mailbox set this to 'NO'.
+  // Examples: 
+  //   YES: /usr/local/virtual/domain.tld/username@domain.tld
+  //   NO:  /usr/local/virtual/domain.tld/username
+  // Note: If $CONF['domain_path'] is set to NO, this setting will be forced to YES.
+  $CONF['domain_in_mailbox'] = 'NO';
+  // If you want to define your own function to generate a maildir path set this to the name of the function.
+  // Notes: 
+  //   - this configuration directive will override both domain_path and domain_in_mailbox
+  //   - the maildir_name_hook() function example is present below, commented out
+  //   - if the function does not exist the program will default to the above domain_path and domain_in_mailbox settings
+  $CONF['maildir_name_hook'] = 'NO';
+
+"/usr/local/virtual/" is assumed to be configured in Dovecot; the path stored in
+the db is concatenated onto the relevant base in Dovecot's own SQL.
+
+=cut 
+
+sub _createMailboxPath(){
+	my $self = shift;
+	my $mailbox = shift;
+	my $p = $self->{'_postfixAdminConfig'};
+	my ($user,$domain) = split('@', $mailbox);
+	my $maildir;
+
+	if(exists($p->{'maildir_name_hook'}) && ($p->{'maildir_name_hook'} !~ /NO/)){
+		$self->_warn("'maildir_name_hook' not yet inplemented in Mail::Postfixadmin");
+	}elsif($p->{'domain_path'} eq "YES"){
+		if($p->{'domain_in_mailbox'} eq "YES"){
+			$maildir = $domain."/".$mailbox."/";
+		}else{
+			$maildir = $domain."/".$user."/";
+		}
+	}else{
+		$maildir = $mailbox;
+	}
+	return $maildir;			
+}
+
+
+
+
 sub _findPostfixAdminConfigFile(){
 	my @candidates = qw# /var/www/postfixadmin/config.inc.php /etc/phpmyadmin/config.inc.php#;
 	reverse(@candidates);
@@ -1616,6 +1672,17 @@ sub _fieldExists() {
 	return($count) if ($count > 0);
 	return;
 }
+
+sub _warn{
+	my $message = shift;
+	chomp $message;
+	Carp::carp($message."\n");
+}
+sub _error{
+	my $message = shift;
+	chomp $message;
+	Carp::croak($message."\n");
+}	
 
 =head1 CLASS VARIABLES
 
