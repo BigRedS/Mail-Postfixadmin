@@ -358,7 +358,7 @@ sub domainExists(){
 	my $domain = shift;
 	my $regex = shift;
 	if ($domain eq ''){
-		Carp::croak "No domain passed to domainExists";
+		_error("No domain passed to domainExists");
 	}
 	if($self->domainIsAlias($domain) > 0){
 		return $self->domainIsAlias($domain);
@@ -392,7 +392,7 @@ sub userExists(){
 	my $user = shift;
 
 	if ($user eq ''){
-		Carp::croak "No username passed to userExists";
+		_error("No username passed to userExists");
 	}
 
 	if ($self->userIsAlias($user)){
@@ -425,7 +425,7 @@ sub domainIsAlias(){
 	my $self = shift;
 	my $domain = shift;
 
-	Carp::croak "No domain passed to domainIsAlias" if $domain eq '';
+	_error("No domain passed to domainIsAlias") if $domain eq '';
 
 	my $query = "select count(*) from $self->{'_tables'}->{alias_domain} where $self->{'_fields'}->{alias_domain}->{alias_domain} = '$domain'";
 	my $sth = $self->{'_dbi'}->prepare($query);
@@ -453,7 +453,7 @@ sub getAliasDomainTarget(){
 	my $self = shift;
 	my $domain = shift;
 	if ($domain eq ''){
-		Carp::croak "No domain passed to getAliasDomainTarget";
+		_error("No domain passed to getAliasDomainTarget");
 	}
 	unless ( $self->domainIsAlias($domain) ){
 		return;
@@ -481,7 +481,7 @@ Checks whether a user is an alias to another address.
 sub userIsAlias{
 	my $self = shift;
 	my $user = shift;
-	if ($user eq ''){ Carp::croak "No user passed to userIsAlias";}
+	if ($user eq ''){ _error("No user passed to userIsAlias");}
 	my $query = "select count(*) from $self->{'_tables'}->{alias} where $self->{'_fields'}->{alias}->{address} = '$user'";
 	my $sth = $self->{'_dbi'}->prepare($query);
 	$sth->execute;
@@ -510,7 +510,7 @@ Returns an array of addresses for which the current user is an alias.
 sub getAliasUserTargets{
 	my $self = shift;
 	my $user = shift;
-	if ($user eq ''){ Carp::croak "No user passed to getAliasUserTargetArray";}
+	if ($user eq ''){ _error("No user passed to getAliasUserTargetArray");}
 
 	my @gotos = $self->_dbSelect(
 		table	=> 'alias',
@@ -542,7 +542,7 @@ Returns undef if the user doesn't exist.
 sub getUserInfo(){
 	my $self = shift;
 	my $user = shift;
-	Carp::croak "No user passed to getUserInfo" if $user eq '';
+	_error("No user passed to getUserInfo") if $user eq '';
 	return unless $self->userExists($user);
 	my %userinfo;
 	my @results = $self->_dbSelect(
@@ -580,7 +580,7 @@ sub getDomainInfo(){
 	my $self = shift;
 	my $domain = shift;
 
-	Carp::croak "No domain passed to getDomainInfo" if $domain eq '';
+	_error("No domain passed to getDomainInfo") if $domain eq '';
 	return unless $self->domainExists($domain);
 
 	my $query = "select * from `$self->{'_tables'}->{domain}` where $self->{'_fields'}->{domain}->{domain} = '$domain'";
@@ -678,7 +678,7 @@ sub changePassword(){
 	my $user = shift;
 	my $password = shift;
 	if ($user eq ''){
-		Carp::croak "No user passed to changePassword";
+		_error("No user passed to changePassword");
 	}
 	my $cryptedPassword = $self->cryptPassword($password);
 	$self->changeCryptedPassword($user,$cryptedPassword,$password);
@@ -699,7 +699,7 @@ sub changeCryptedPassword(){
 	my $user = shift;;
 
 	if ($user eq ''){
-		Carp::croak "No user passed to changeCryptedPassword";
+		_error("No user passed to changeCryptedPassword");
 	}
 	my $cryptedPassword = shift;
 	my $clearPassword = shift;
@@ -761,10 +761,10 @@ sub createDomain(){
 	my $values;
 	my $domain = $opts{'domain'};
 
-	Carp::croak "No domain passed to createDomain" if $domain !~ /.+/;
+	_error("No domain passed to createDomain") if $domain !~ /.+/;
 
 	if($domain eq ''){
-		Carp::croak "No domain passed to createDomain";
+		_error("No domain passed to createDomain");
 	}
 
 	if ($self->domainExists($domain)){
@@ -831,7 +831,7 @@ sub createUser(){
 	my $fields;
 	my $values;
 
-	Carp::croak "no username passed to createUser" if $opts{"username"} eq '';
+	_error("no username passed to createUser" if $opts{"username")} eq '';
 	
 	my $user = $opts{"username"};
 
@@ -871,7 +871,7 @@ sub createUser(){
 		}
 	}
 	if ($opts{username} eq ''){
-		Carp::croak "No user passed to createUser";
+		_error("No user passed to createUser");
 	}
 	$values =~ s/, $//;
 	$fields =~ s/, $//;
@@ -922,8 +922,8 @@ sub createAliasDomain {
 	my $domain = $opts{'alias'};
 	my $target = $opts{'target'};
 
-	Carp::croak "No alias passed to createAliasDomain" if $domain !~ /.+/;
-	Carp::croak "No target passed to createAliasDomain" if $target !~ /.+/;
+	_error("No alias passed to createAliasDomain") if $domain !~ /.+/;
+	_error("No target passed to createAliasDomain") if $target !~ /.+/;
 
 	if($self->domainIsAlias($domain)){
 		$self->{errstr} = "Domain $domain is already an alias";
@@ -1019,10 +1019,10 @@ sub createAliasUser {
 	my %opts = @_;
 	my $user = $opts{"alias"};
 	if ($user eq ''){
-		Carp::croak "No alias key in hash passed to createAliasUser";
+		_error("No alias key in hash passed to createAliasUser");
 	}
 	unless(exists($opts{'target'})){
-		Carp::croak "No target key in hash passed to createAliasUser";
+		_error("No target key in hash passed to createAliasUser");
 	}
 # The PFA web ui creates an alias for each user (with itself as the target)
 # and so we must either be able to create aliases for users that already
@@ -1030,16 +1030,16 @@ sub createAliasUser {
 # special case so I'm removing the check, but leaving a relic of it to remind 
 # me that it did once look like a good idea.
 #	if($self->userExists($user)){
-#		Carp::croak "User $user already exists (passed as alias to createAliasUser)";
+#		_error("User $user already exists (passed as alias to createAliasUser)");
 #	}
 	if($self->userIsAlias($user)){
-		Carp::croak "User $user is already an alias (passed to createAliasUser)";
+		_error("User $user is already an alias (passed to createAliasUser)");
 	}
 	unless(exists($opts{domain})){
 		if($user =~ /\@(.+)$/){
 			$opts{domain} = $1;
 		}else{
-			Carp::croak "Error determining domain from user '$user' in createAliasUser";
+			_error("Error determining domain from user '$user' in createAliasUser");
 		}
 	}
 	#TODO: createAliasUser should accept an array of targets
@@ -1093,7 +1093,7 @@ sub removeUser(){
 	my $self = shift;
 	my $user = shift;
 	if($user eq ''){
-		Carp::croak "No user passed to removeUser";
+		_error("No user passed to removeUser");
 	}
 	if (!$self->userExists($user)){
 		$self->{infostr} = "User doesn't exist ($user) ";
@@ -1124,7 +1124,7 @@ Returns 1 on successful removal of a user, 2 if the user didn't exist to start w
 sub removeDomain(){
 	my $self = shift;
 	my $domain = shift;
-	Carp::croak "No domain passed to removeDomain" if $domain eq '';
+	_error("No domain passed to removeDomain") if $domain eq '';
 	
 	unless ($self->domainExists($domain) >  0){
 		$self->{errstr} = "Domain doesn't exist";
@@ -1163,7 +1163,7 @@ sub removeAliasDomain{
 	my $self = shift;
 	my $domain = shift;
 	if ($domain eq ''){
-		Carp::croak "No domain passed to removeAliasDomain";
+		_error("No domain passed to removeAliasDomain");
 	}
 	if ( !$self->domainIsAlias($domain) ){
 		$self->{infostr} = "Domain is not an alias ($domain)";
@@ -1185,7 +1185,7 @@ sub removeAliasUser{
 	my $self = shift;
 	my $user = shift;
 	if ($user eq ''){
-		Carp::croak "No user passed to removeAliasUser";
+		_error("No user passed to removeAliasUser");
 	}
 	if (!$self->userIsAlias){
 		$self->{infoStr} = "user is not an alias ($user)";
@@ -1212,8 +1212,8 @@ generate passwords use.
 sub generatePassword() {
 	my $self = shift;
 	my $length = shift;
-	Carp::croak "generatePassword() called with no arguments (length required)" if $length =~ /^$/;
-	Carp::croak "generatePassword() called with non-numeric argument (length expected)" if $length !~ /^\s*\d+\.?\d*\s*$/;
+	_error("generatePassword() called with no arguments (length required)") if $length =~ /^$/;
+	_error("generatePassword() called with non-numeric argument (length expected)") if $length !~ /^\s*\d+\.?\d*\s*$/;
 	my @characters = qw/a b c d e f g h i j k l m n o p q r s t u v w x y z
 			    A B C D E F G H I J K L M N O P Q R S T U V W X Y Z 
 			    1 2 3 4 5 6 7 8 9 0 - =
@@ -1708,12 +1708,12 @@ sub _dbSelect {
 	if(exists($self->{'_tables'}->{$table})){
 		$table = $self->{'_tables'}->{$table};
 	}else{
-		Carp::croak "Table '$table' not defined in %_tables";
+		_error("Table '$table' not defined in %_tables");
 	}
 
 	foreach my $field (@{$opts{'_fields'}}){
 		unless(exists($self->{'_fields'}->{$table}->{$field})){
-			Carp::croak "Field $self->{'_fields'}->{$table}->{$field} in table $table not defined in %_fields";
+			_error("Field $self->{'_fields'}->{$table}->{$field} in table $table not defined in %_fields");
 		}
 		push (@fields, $self->{'_fields'}->{$table}->{$field});
 	}
@@ -1730,7 +1730,7 @@ sub _dbSelect {
 		if (exists($self->{'_fields'}->{$table}->{$field})){
 			$field = $self->{'_fields'}->{$table}->{$field};
 		}else{
-			Carp::croak "Field $field in table $table (used in SQL conditional) not defined";
+			_error("Field $field in table $table (used in SQL conditional) not defined");
 		}
 		$query .= " where $field = '$value' ";
 	}elsif ($opts{'like'} > 0){
@@ -1738,14 +1738,14 @@ sub _dbSelect {
 		if (exists($self->{'_fields'}->{$table}->{$field})){
 			$field = $self->{'_fields'}->{$table}->{$field};
 		}else{
-			Carp::croak "Field $field in table $table (used in SQL conditional) not defined";
+			_error("Field $field in table $table (used in SQL conditional) not defined");
 		}
 		$field = $self->{'_fields'}->{$table}->{$field};
 		$query .= " where $field like '$value'";
 	}
 	my $dbi = $self->{'_dbi'};
 	my $sth = $self->{'_dbi'}->prepare($query);
-	$sth->execute() or Carp::croak "execute failed: $!";
+	$sth->execute() or _error("execute failed: $!");
 	while(my $row = $sth->fetchrow_hashref){
 		push(@return, $row);
 	}
