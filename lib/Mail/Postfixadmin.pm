@@ -1163,6 +1163,7 @@ sub removeUser(){
 	my $sth = $self->{dbi}->prepare($query);
 	$sth->execute();
 	$self->{infostr} = $query;
+	$self->removeAliasUser($user);
 	if ($self->userExists($user)){
 		$self->{errstr} = "Everything appeared successful but user $user still exists";
 		return;
