@@ -153,12 +153,7 @@ sub new() {
 	};
 	$self->{'_doveconf'} = \@doveconf unless($@);
 
-	# Postfix config:
-	my @postconf;
-	eval{
-		@postconf = qx@postconf 2>/dev/null@ or die "$!";
-	};
-	$self->{'_postconf'} = \@postconf unless($@);
+	$self->{'_postfixAdminConfig'} = $self->_parsePostfixAdminConfig();
 
 	# Here we build a DBI object using whatever DB credentials we can find:
 	my @_dbi;
@@ -1267,6 +1262,29 @@ sub version{
 	my $self = shift;
 	return $VERSION
 }
+
+sub _findPostfixAdminConfigFile(){
+	my @candidates = qw# /var/www/postfixadmin/config.inc.php /etc/phpmyadmin/config.inc.php#;
+	reverse(@candidates);
+	foreach my $file (@candidates){
+		return $file if -r $file;
+	}
+}
+
+sub _parsePostfixAdminConfigFile(){
+	my $file = _findPostfixAdminConfigFile();
+	open(my $fh, "<", $file) or die "Error parsng PostfixAdmin config file '$file' : $!";
+	my %pfaConf;
+	while(<$fh>){
+		if(/^\s*\$CONF\['([^']+)'\]\s*=\s*'?([^']*)'?\s*;\s*$/){
+			$pfaConf{$1} = $2;
+		}
+	}
+	return \%pfaConf;
+}
+
+
+
 # dbConnection
 # Deduces db details, returns an array of arguments to a 
 # $dbi->connect()
