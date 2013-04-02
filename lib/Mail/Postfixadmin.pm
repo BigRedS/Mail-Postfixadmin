@@ -1199,9 +1199,20 @@ sub removeAliasUser{
 
 =head2 Admin Users
 
-=head3 createAdminUser() 
+=head3 getAdminUsers()
 
-=cut 
+Returns a hash describing admin users, with usernames as the keys, and 
+an arrayref of domains as values. Accepts a a domain as an optional 
+argument, when that is supplied will only return users who are admins 
+of that domain, and each user's array will be a single value (that domain).
+
+    my %admins = $pfa->getAdminUsers();
+    foreach my $username (keys(%admins)){
+        print "$username is an admin of ", join(" ", @{$admins{$username}}), "\n";
+    }
+
+
+=cut
 
 sub getAdminUsers {
 	my $self = shift;
@@ -1211,20 +1222,27 @@ sub getAdminUsers {
 	if ($domain =~ /.+/){
 		@results = $self->_dbSelect(
 			table  => 'domain_admins',
-			fields => [ 'username' ],
+			fields => [ 'username', 'domain' ],
 			equals => [ 'domain', $domain],
 		);
 	}else{
 		@results = $self->_dbSelect(
 			table  => 'domain_admins',
-			fields => [ 'username' ],
+			fields => [ 'username', 'domain' ],
 		);
 	}
-	my @admins = map ($_->{'username'}, @results);
-	return @admins;
+	my %return;
+	foreach(@results){
+		push(@{$return{$_->{'username'}}}, $_->{'domain'});
+	}
+	return %return;
 
 
 }
+
+=head3 createAdminUser() 
+
+=cut 
 
 sub createAdminUser{
 	my $self = shift;
