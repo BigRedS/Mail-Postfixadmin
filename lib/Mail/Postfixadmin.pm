@@ -1211,7 +1211,6 @@ of that domain, and each user's array will be a single value (that domain).
         print "$username is an admin of ", join(" ", @{$admins{$username}}), "\n";
     }
 
-
 =cut
 
 sub getAdminUsers {
@@ -1223,7 +1222,11 @@ sub getAdminUsers {
 		@results = $self->_dbSelect(
 			table  => 'domain_admins',
 			fields => [ 'username', 'domain' ],
-			equals => [ 'domain', $domain],
+			equals => [
+				['domain', $domain],
+				['domain', 'ALL'],
+			],
+			equals_andor => 'or',
 		);
 	}else{
 		@results = $self->_dbSelect(
@@ -1233,11 +1236,15 @@ sub getAdminUsers {
 	}
 	my %return;
 	foreach(@results){
-		push(@{$return{$_->{'username'}}}, $_->{'domain'});
+		if($domain =~ /^ALL$/){
+			foreach(getDomains()){
+				push(@{$return{$_->{'username'}}}, $_);
+			}
+		}else{
+			push(@{$return{$_->{'username'}}}, $_->{'domain'});
+		}
 	}
 	return %return;
-
-
 }
 
 =head3 createAdminUser() 
@@ -1246,14 +1253,16 @@ sub getAdminUsers {
 
 sub createAdminUser{
 	my $self = shift;
-	my $opts = shift;
-	_error("No username passed to createAdminUser") if !$opts->{'username'};
-	_error("No domain passed to createAdminUser") if !$opts->{'domain'};
-	if($opts->{password_crypt}){
-		$opts->{password} = $opts->{password_crypt};
-	}elsif($opts->{password_clear}){
-		$opts->{password} = $self->cryptPassword($opts->{password_clear});
+	my %opts = @_;
+	print Dumper(%opts);
+	_error("No username passed to createAdminUser") unless $opts{'username'};
+	_error("No domain passed to createAdminUser") unless $opts{'domain'};
+	if($opts{'password_crypt'}){
+		$opts{'password'} = $opts{'password_crypt'};
+	}elsif($opts{'password_clear'}){
+		$opts{'password'} = $self->cryptPassword($opts{'password_clear'});
 	}
+
 	
 
 }
@@ -1801,7 +1810,22 @@ Hopefully, a generic sub to pawn all db lookups off onto
 		count     => something
 	}
 
-If count *exists*, a count is returned. If not, it isn't.
+If count *exists*, a count is returned. If not, it isn't. More 
+than one pair of 'equals' may be passed by passing an array of 
+arrays. In this case you can specify whether these are an 'and' 
+or an 'or' with the 'equalsandor' param:
+
+	_dbSelect(
+		table	     => 'table',
+		fields	     => ['field1', 'field2'],
+		equals       => [
+					['field2', "something"],
+					['field7', "something else"],
+			        ],
+		equals_or => "or";
+	);
+If this is set to anything other than 'or' it is an 'and' search.
+
 Returns an array of hashes, each hash representing a row from
 the db with keys as field names.
 
@@ -1835,13 +1859,33 @@ sub _dbSelect {
 	}
 	$query .= " from $table ";
 	if ($opts{'equals'} > 0){
-		my ($field,$value) = @{$opts{'equals'}};
-		if (exists($self->{'_fields'}->{$table}->{$field})){
-			$field = $self->{'_fields'}->{$table}->{$field};
+		$query.="where ";
+		my $andor;
+		if($opts{'equals_andor'} =~ /^or$/i){
+			$andor = "or";
 		}else{
-			_error("Field $field in table $table (used in SQL conditional) not defined");
+			$andor = "and";
 		}
-		$query .= " where $field = '$value' ";
+		# We may be passed one of two things to 'equals'; an array of 
+		# two elements (element 1 must equal element 2) or an array of 
+		# arrays, each of which is of that form. Here, if we're passed a
+		# one-dimensional array, we move it to being the first element of
+		# a two-dimensional one:
+		if(ref($opts{'equals'}->[0]) eq ''){
+			my $equals = $opts{'equals'};
+			delete($opts{'equals'});
+			push(@{$opts{'equals'}}, $equals);
+		}
+		foreach my $equals (@{$opts{'equals'}}){
+			my ($field,$value) = @{$equals};
+			if (exists($self->{'_fields'}->{$table}->{$field})){
+			$field = $self->{'_fields'}->{$table}->{$field};
+			}else{
+				_error("Field $field in table $table (used in SQL conditional) not defined");
+			}
+			$query .= " $field = '$value' $andor ";
+		}
+		$query =~ s/$andor $//;
 	}elsif ($opts{'like'} > 0){
 		my ($field,$value) = @{$opts{'like'}};
 		if (exists($self->{'_fields'}->{$table}->{$field})){
@@ -1852,6 +1896,7 @@ sub _dbSelect {
 		$field = $self->{'_fields'}->{$table}->{$field};
 		$query .= " where $field like '$value'";
 	}
+	say $query;
 	my $dbi = $self->{'_dbi'};
 	my $sth = $self->{'_dbi'}->prepare($query);
 	$sth->execute() or _error("execute failed: $!");
