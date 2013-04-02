@@ -159,7 +159,7 @@ sub new() {
 	my %_tables = _tables();
 	$self->{'_tables'} = _tables();
 	$self->{'_fields'} = _fields();
-	$self->{'_postfixAdminConfig'} = _parsePostfixAdminConfigFile($conf{'PostfixAdminConfigFile'});
+	$self->{'_postfixAdminConfig'} = _parsePostfixAdminConfigFile($conf{'postfixAdminConfigFile'});
 	$self->{'_dbi'} = _createDBI(\%conf);
 
 	if($conf{'storeCleartextPasswords'} == 1){
@@ -831,7 +831,7 @@ sub createUser(){
 	my $fields;
 	my $values;
 
-	_error("no username passed to createUser" if $opts{"username")} eq '';
+	_error("no username passed to createUser") if $opts{"username"} eq '';
 	
 	my $user = $opts{"username"};
 
@@ -1196,6 +1196,25 @@ sub removeAliasUser{
 	$sth->execute;
 	return 1;
 }
+
+=head2 Admin Users
+
+=head3 createAdminUser() 
+
+=cut 
+sub createAdminUser{
+	my $self = shift;
+	my $opts = shift;
+	_error("No username passed to createAdminUser") if !$opts->{'username'};
+	_error("No domain passed to createAdminUser") if !$opts->{'domain'};
+	if($opts->{password_crypt}){
+		$opts->{password} = $opts->{password_crypt};
+	}elsif($opts->{password_clear}){
+		$opts->{password} = $self->cryptPassword($opts->{password_clear});
+	}
+	
+
+}
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
  # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -1364,8 +1383,10 @@ it's passed a path
 
 =cut
 
-sub _findPostfixAdminConfigFile(){
+sub _findPostfixAdminConfigFile{
+	my $file = shift;
 	my @candidates = qw# /var/www/postfixadmin/config.inc.php /etc/phpmyadmin/config.inc.php#;
+	unshift(@candidates, $file);
 	reverse(@candidates);
 	foreach my $file (@candidates){
 		return $file if -r $file;
@@ -1378,9 +1399,11 @@ Returns a hash reference that's an approximation of the $CONF associative array 
 by PostfixAdmin for its configuration.
 
 =cut
-sub _parsePostfixAdminConfigFile(){
-	my $self = shift;
-	my $file = shift || _findPostfixAdminConfigFile();
+sub _parsePostfixAdminConfigFile{
+#	my $self = shift;
+	my $arg = shift ;
+	my $file = _findPostfixAdminConfigFile($arg);
+	_error("Couldn't find PostfixAdmin config file") unless $file;
 	open(my $fh, "<", $file) or _warn("Error parsing PostfixAdmin config file '$file' : $!");
 	my %pfaConf;
 	while(<$fh>){
@@ -1652,6 +1675,7 @@ sub _createDBI{
 	my $conf = shift;
 	# Here we build a DBI object using whatever DB credentials we can find:
 	my @_dbi;
+	$conf->{'_dbi'} = $conf->{'dbi'};
 	unless(exists($conf->{'_dbi'})){
 		if($conf->{mysqlconf} =~ m@/@){
 			@_dbi = _parseMysqlConfigFile($conf->{mysqlconf});
@@ -1678,6 +1702,49 @@ sub _createDBI{
 	}
 }
 
+=head3 _dbInsert()
+
+Hopefully, a generic sub to pawn all db inserts off onto:
+
+	_dbInsert(
+		data => (
+			field1 => value1,
+			field2 => value2,
+			field3 => value3,
+		);
+		table  => 'table name',
+	)
+=cut
+
+sub _dbInsert {
+	my $self = shift;
+	my $opts = shift;
+	_error("_dbInsert called with no table name (this is probably a bug in the module)") unless $opts->{'table'};
+	my $table = $self->_tables->{$self->{'table'}};
+	_error ("_dbInsert couldn't resolve passed table name into a proper table name") unless $table;
+
+	_error("_dbInsert called with no data to insert") unless $opts->{'data'};
+
+	my(@fields, @values);
+	foreach(keys(%{$opts->{'data'}})){
+		push(@fields, $_);
+		push(@values, $opts->{'data'}->{$_});
+	}
+
+	my $query = "insert into `$table` ";
+	$query.="(`";
+	$query.=join("`, `", @$opts->{'fields'});
+	$query.="`) ";
+
+	$query.= "values (";
+	foreach(@values){
+		$query.="?, ";
+	}
+	$query = s/, $//;
+	$query.=")";
+	print $query;
+
+}
 
 =head3 _dbSelect()
 
@@ -1701,6 +1768,7 @@ the db with keys as field names.
 sub _dbSelect {
 	my $self = shift;
 	my %opts = @_;
+	say Dumper(%opts);
 	my $table = $opts{'table'};
 	my @return;
 	my @fields;
@@ -1743,6 +1811,7 @@ sub _dbSelect {
 		$field = $self->{'_fields'}->{$table}->{$field};
 		$query .= " where $field like '$value'";
 	}
+	print "\n\n\n$query\n\n\n";
 	my $dbi = $self->{'_dbi'};
 	my $sth = $self->{'_dbi'}->prepare($query);
 	$sth->execute() or _error("execute failed: $!");
