@@ -1768,7 +1768,6 @@ the db with keys as field names.
 sub _dbSelect {
 	my $self = shift;
 	my %opts = @_;
-	say Dumper(%opts);
 	my $table = $opts{'table'};
 	my @return;
 	my @fields;
@@ -1779,7 +1778,7 @@ sub _dbSelect {
 		_error("Table '$table' not defined in %_tables");
 	}
 
-	foreach my $field (@{$opts{'_fields'}}){
+	foreach my $field (@{$opts{'fields'}}){
 		unless(exists($self->{'_fields'}->{$table}->{$field})){
 			_error("Field $self->{'_fields'}->{$table}->{$field} in table $table not defined in %_fields");
 		}
@@ -1811,7 +1810,6 @@ sub _dbSelect {
 		$field = $self->{'_fields'}->{$table}->{$field};
 		$query .= " where $field like '$value'";
 	}
-	print "\n\n\n$query\n\n\n";
 	my $dbi = $self->{'_dbi'};
 	my $sth = $self->{'_dbi'}->prepare($query);
 	$sth->execute() or _error("execute failed: $!");
