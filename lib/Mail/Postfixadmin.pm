@@ -1202,6 +1202,30 @@ sub removeAliasUser{
 =head3 createAdminUser() 
 
 =cut 
+
+sub getAdminUsers {
+	my $self = shift;
+	my $domain = shift;
+	my $query;
+	my @results;
+	if ($domain =~ /.+/){
+		@results = $self->_dbSelect(
+			table  => 'domain_admins',
+			fields => [ 'username' ],
+			equals => [ 'domain', $domain],
+		);
+	}else{
+		@results = $self->_dbSelect(
+			table  => 'domain_admins',
+			fields => [ 'username' ],
+		);
+	}
+	my @admins = map ($_->{'username'}, @results);
+	return @admins;
+
+
+}
+
 sub createAdminUser{
 	my $self = shift;
 	my $opts = shift;
