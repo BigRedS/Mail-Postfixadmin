@@ -1236,9 +1236,9 @@ sub getAdminUsers {
 	}
 	my %return;
 	foreach(@results){
-		if($domain =~ /^ALL$/){
-			foreach(getDomains()){
-				push(@{$return{$_->{'username'}}}, $_);
+		if($_->{'domain'} =~ /^ALL$/){
+			foreach my $domain ($self->getDomains()){
+				push(@{$return{$_->{'username'}}}, $domain) unless $domain =~ /^ALL$/;
 			}
 		}else{
 			push(@{$return{$_->{'username'}}}, $_->{'domain'});
@@ -1896,7 +1896,6 @@ sub _dbSelect {
 		$field = $self->{'_fields'}->{$table}->{$field};
 		$query .= " where $field like '$value'";
 	}
-	say $query;
 	my $dbi = $self->{'_dbi'};
 	my $sth = $self->{'_dbi'}->prepare($query);
 	$sth->execute() or _error("execute failed: $!");
