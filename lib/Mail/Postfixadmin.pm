@@ -1247,7 +1247,25 @@ sub getAdminUsers {
 	return %return;
 }
 
-=head3 createAdminUser() 
+=head3 createAdminUser()
+
+Creates an admin user:
+
+$pfa->createAdminUser(
+	username       => 'someone@somedomain.net',
+	domains        => [ "example.net", "example.com", "example.mil" ],
+	password_clear => 'password',
+);
+
+Alternatively, create an admin of a single domain:
+
+$pfa->createAdminUser(
+	username       => 'someone@somedomain.net',
+	domain         => 'example.org',
+	password_clear => 'password',
+);
+
+If domain is set to 'ALL' then the user is set as an admin of all domains.
 
 =cut 
 
@@ -1262,8 +1280,32 @@ sub createAdminUser{
 	}elsif($opts{'password_clear'}){
 		$opts{'password'} = $self->cryptPassword($opts{'password_clear'});
 	}
-
 	
+	my @domains;
+	if(exists($opts{'domains'})){
+		@domains = @{$opts{'domains'}};
+	};
+	if(exists($opts{'domain'})){
+		push(@domains, $opts{'domain'});
+	}
+
+	$self->_dbInsert(
+		data => {
+			username => $opts{'username'},
+			password => $opts{'password'},
+		},
+		table => 'admin',
+	);
+
+	foreach my $domain(@domains){
+		$self->_dbInsert(
+			data => {
+				username => $opts{'username'},
+				domain   => $domain,
+			},
+			table => 'domain_admins'
+		)
+	}
 
 }
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -1769,31 +1811,36 @@ Hopefully, a generic sub to pawn all db inserts off onto:
 
 sub _dbInsert {
 	my $self = shift;
-	my $opts = shift;
-	_error("_dbInsert called with no table name (this is probably a bug in the module)") unless $opts->{'table'};
-	my $table = $self->_tables->{$self->{'table'}};
-	_error ("_dbInsert couldn't resolve passed table name into a proper table name") unless $table;
+	my %opts = @_;
+	print Dumper(%opts);
+	_error("_dbInsert called with no table name (this is probably a bug in the module)") unless $opts{'table'};
+	my $table = $self->_tables->{$opts{'table'}};
+	_error ("_dbInsert couldn't resolve passed table ($opts{'table'}) name into a proper table name") unless $table;
 
-	_error("_dbInsert called with no data to insert") unless $opts->{'data'};
+	_error("_dbInsert called with no data to insert") unless $opts{'data'};
 
 	my(@fields, @values);
-	foreach(keys(%{$opts->{'data'}})){
+	foreach(keys(%{$opts{'data'}})){
 		push(@fields, $_);
-		push(@values, $opts->{'data'}->{$_});
+		push(@values, $opts{'data'}->{$_});
 	}
 
 	my $query = "insert into `$table` ";
 	$query.="(`";
-	$query.=join("`, `", @$opts->{'fields'});
+	$query.=join("`, `", @fields);
 	$query.="`) ";
 
 	$query.= "values (";
 	foreach(@values){
 		$query.="?, ";
 	}
-	$query = s/, $//;
+	$query =~ s/, $//;
 	$query.=")";
-	print $query;
+	say "[$query]";
+
+	my $sth = $self->{'_dbi'}->prepare($query);
+	$sth->execute(@values) or _error ("_dbInsert execute failed: $!\nQuery: $query");
+	return $?;
 
 }
 
