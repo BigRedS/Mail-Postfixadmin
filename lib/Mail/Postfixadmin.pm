@@ -1265,7 +1265,16 @@ $pfa->createAdminUser(
 	password_clear => 'password',
 );
 
-If domain is set to 'ALL' then the user is set as an admin of all domains.
+If domain is set to 'ALL' then the user is set as an admin of all domains. 
+
+Creating an admin user involves both adding a username and password to the admin
+table, and then a domain/user pairing to domain_admins. 
+The former is only attempted if you pass a password to this function; calling this
+with only a username and a domain simply adds that pair to the domain_admin table.
+
+If you call this with a password and a username that already exists, the row in the 
+admin table will remain unchanged, and a warning will be raised. The user/domain 
+pairing will still be written to the domain_admins table.
 
 =cut 
 
@@ -1288,14 +1297,24 @@ sub createAdminUser{
 	if(exists($opts{'domain'})){
 		push(@domains, $opts{'domain'});
 	}
-
-	$self->_dbInsert(
-		data => {
-			username => $opts{'username'},
-			password => $opts{'password'},
-		},
-		table => 'admin',
-	);
+	# Only insert a username and password if there's not already
+	# that username:
+	unless $self->_dbSelect(
+	     table  => 'admin',
+	     count  => 1,
+	     equals => [ 'username', $opts{'username'} ],
+	)){
+	  	if($opts{'password'}){
+			$self->_warn("User $opts{'user'} already exists; not adding to admin table");
+			$self->_dbInsert(
+				data => {
+					username => $opts{'username'},
+					password => $opts{'password'},
+				},
+				table => 'admin',
+			);
+		}
+	}
 
 	foreach my $domain(@domains){
 		$self->_dbInsert(
@@ -1306,8 +1325,9 @@ sub createAdminUser{
 			table => 'domain_admins'
 		)
 	}
-
 }
+
+sub getDomainsAdmins
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
  # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
