@@ -1675,7 +1675,7 @@ sub _createDBI{
 	my $conf = shift;
 	# Here we build a DBI object using whatever DB credentials we can find:
 	my @_dbi;
-	$conf->{'_dbi'} = $conf->{'dbi'};
+	$conf->{'_dbi'} = $conf->{'dbi'} if exists($conf->{'dbi'});
 	unless(exists($conf->{'_dbi'})){
 		if($conf->{mysqlconf} =~ m@/@){
 			@_dbi = _parseMysqlConfigFile($conf->{mysqlconf});
