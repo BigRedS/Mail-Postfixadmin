@@ -1377,7 +1377,7 @@ sub _createMailboxPath(){
 }
 
 sub _getDovecotConfig {
-	my $cmd = "dovecot -a 2>&1" || shift;
+	my $cmd = shift  || "dovecot -a 2>&1";
 	my $output = `$cmd`;
 	_warn("Failed to get Dovecot output; `$cmd` exited $? and said:\n$output\n") if $? > 0;
 	my $conf;
