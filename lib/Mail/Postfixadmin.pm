@@ -548,13 +548,54 @@ sub getUserInfo(){
 	_error("No user passed to getUserInfo") if $user eq '';
 	return unless $self->userExists($user);
 	my %userinfo;
-	my %results = $self->_dbSelect(
+	my @results = $self->_dbSelect(
 		table  => 'mailbox',
 		fields => [ qw/name username password maildir quota local_part domain created modified active/ ],
 		equals => ['username', $user]
 	);
-	return %results;
+	return $results[0];
 }
+
+=head3 getMailboxInfo()
+
+Returns a hash containing info about a (user's) mailbox. Pass it a username as the 
+only argument, get a hashref back describing the mailbox.
+
+Currently the only key is 'path'. When Postfix and Dovecot disagre, the hashref will be of the form:
+
+    $mboxinfo->path = {
+                       postfix => '/var/lib/mail/user@domain',
+		       dovecot => '/var/lib/mail/domain/user',
+    }
+
+But when they agree, it is of a single element:
+
+    $mboxinfo->path = '/var/lib/mail/domain.user';
+
+=cut
+
+sub getMailboxInfo(){
+	my $self = shift;
+	my $user = shift;
+	my $userInfo = $self->getUserInfo($user);
+	my $info;
+	# This is the path to which Postfix will deliver the mail
+	if(my $mailbox_base = $self->{'_postfixConfig'}->{'virtual_mailbox_base'}){
+		$info->{'path'}->{'postfix'} = $mailbox_base."/".$userInfo->{'maildir'};
+	}
+	# This is the path from which Dovecot will have IMAP/POP clients collect the mail:
+	if(my $mail_location = $self->{'_dovecotConfig'}->{'mail_location'}){
+		my ($type,$path) = split(/:/, $mail_location);
+		$info->{'path'}->{'dovecot'} = _interpolateDovecotMailLocation($mail_location, $userInfo);
+	}
+
+	if($info->{'path'}->{'dovecot'} eq $info->{'path'}->{'postfix'}){
+		$info->{'path'} = $info->{'path'}->{'dovecot'};
+	}
+
+	return $info;
+}
+
 
 =head3 getDomainInfo()
 
@@ -1397,6 +1438,35 @@ sub _getDovecotConfig {
 
 	return $conf;
 
+}
+
+=head3 _interpolateDovecotMailLocation()
+
+Given the value of Dovecot's mail_location (should be at c<$self->{'_dovecotConfig'}->{'mail_location'}>)
+and the output of getUserInfo, will return the path to the mailbox, 
+as understood by Dovecot 
+
+=cut 
+
+sub _interpolateDovecotMailLocation{
+	my $mail_location = shift;
+	my $userInfo = shift;
+
+	my @bits = split(/:/, $mail_location);
+	my $type = shift(@bits);
+	my $mail_location = join(":", @bits);
+
+	$mail_location =~ s/\%u/$userInfo->{'username'}/g;
+	$mail_location =~ s/\%n/$userInfo->{'local_part'}/g;
+	$mail_location =~ s/\%d/$userInfo->{'domain'}/g;
+
+	if($type =~ /^maildir$/i){
+		$mail_location.="/";
+	}
+
+	$mail_location =~ s#//#/#g;
+
+	return $mail_location;
 }
 
 sub _getPostfixConfig {
