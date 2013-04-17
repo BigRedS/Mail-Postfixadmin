@@ -547,12 +547,12 @@ sub getUserInfo(){
 	_error("No user passed to getUserInfo") if $user eq '';
 	return unless $self->userExists($user);
 	my %userinfo;
-	my @results = $self->_dbSelect(
+	my %results = $self->_dbSelect(
 		table  => 'mailbox',
 		fields => [ qw/name username password maildir quota local_part domain created modified active/ ],
 		equals => ['username', $user]
 	);
-	return @results;
+	return %results;
 }
 
 =head3 getDomainInfo()
