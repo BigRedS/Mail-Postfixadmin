@@ -162,6 +162,7 @@ sub new() {
 	$self->{'_postfixAdminConfig'} = _parsePostfixAdminConfigFile($conf{'postfixAdminConfigFile'});
 	# TODO: Document dovecotConfigCmd option
 	$self->{'_dovecotConfig'} = _getDovecotConfig($conf{'dovecotConfigCmd'});
+	$self->{'_postfixConfig'} = _getPostfixConfig($conf{'postfixConfigCmd'});
 	$self->{'_dbi'} = _createDBI(\%conf);
 
 	if($conf{'storeCleartextPasswords'} == 1){
@@ -1398,7 +1399,17 @@ sub _getDovecotConfig {
 
 }
 
-
+sub _getPostfixConfig {
+	my $cmd = shift || "postconf";
+	my $output = `$cmd`;
+	_warn ("Failed to get Postfix config: `$cmd` exited $? and said:\n$output\n") if $? > 0;
+	my $conf;
+	foreach my $line (split(/\n/, $output)){
+		my ($key,$value) = split(/\s*=\s*/, $line);
+		$conf->{$key} = $value;
+	}
+	return $conf;
+}
 
 =head3 _findPostfixAdminConfigFile()
 
