@@ -1437,6 +1437,7 @@ sub _getDovecotConfig {
 		my @bits = split(/\s*:\s*/, $line);
 		my $key = shift(@bits);
 		my $value = join(":", @bits);
+		chomp $value;
 		if($key =~ /^\s+/){
 			$key =~ s/^\s+/$lastkey\./;
 		}else{
@@ -1485,6 +1486,7 @@ sub _getPostfixConfig {
 	my $conf;
 	foreach my $line (split(/\n/, $output)){
 		my ($key,$value) = split(/\s*=\s*/, $line);
+		chomp $value;
 		$conf->{$key} = $value;
 	}
 	return $conf;
