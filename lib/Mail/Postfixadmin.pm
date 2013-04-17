@@ -572,6 +572,15 @@ But when they agree, it is of a single element:
 
     $mboxinfo->path = '/var/lib/mail/domain.user';
 
+So you will probably want to do something like this:
+
+    if( ref($mboxinfo->{'path'}) eq "HASH" ){
+         # Deal with the inconsistency
+    }else{
+         my $path = $mboxinfo->{'path'};
+         #carry on as normal
+    }
+
 =cut
 
 sub getMailboxInfo(){
