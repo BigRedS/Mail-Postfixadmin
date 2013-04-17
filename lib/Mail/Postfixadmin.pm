@@ -160,6 +160,8 @@ sub new() {
 	$self->{'_tables'} = _tables();
 	$self->{'_fields'} = _fields();
 	$self->{'_postfixAdminConfig'} = _parsePostfixAdminConfigFile($conf{'postfixAdminConfigFile'});
+	# TODO: Document dovecotConfigCmd option
+	$self->{'_dovecotConfig'} = _getDovecotConfig($conf{'dovecotConfigCmd'});
 	$self->{'_dbi'} = _createDBI(\%conf);
 
 	if($conf{'storeCleartextPasswords'} == 1){
@@ -1373,6 +1375,29 @@ sub _createMailboxPath(){
 	}
 	return $maildir;			
 }
+
+sub _getDovecotConfig {
+	my $cmd = "dovecot -a 2>&1" || shift;
+	my $output = `$cmd`;
+	_warn("Failed to get Dovecot output; `$cmd` exited $? and said:\n$output\n") if $? > 0;
+	my $conf;
+	my $lastkey;
+	foreach my $line (split(/\n/, $output)){
+		my @bits = split(/\s*:\s*/, $line);
+		my $key = shift(@bits);
+		my $value = join(":", @bits);
+		if($key =~ /^\s+/){
+			$key =~ s/^\s+/$lastkey\./;
+		}else{
+			$lastkey = $key;
+		}
+		$conf->{$key} = $value;
+	}
+
+	return $conf;
+
+}
+
 
 
 =head3 _findPostfixAdminConfigFile()
