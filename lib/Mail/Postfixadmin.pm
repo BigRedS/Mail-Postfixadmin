@@ -547,7 +547,7 @@ sub getUserInfo(){
 	my %userinfo;
 	my @results = $self->_dbSelect(
 		table  => 'mailbox',
-		fields => ['*'],
+		fields => [ qw/name username password maildir quota local_part domain created modified active/ ],
 		equals => ['username', $user]
 	);
 	return @results;
