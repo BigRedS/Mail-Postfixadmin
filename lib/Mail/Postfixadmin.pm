@@ -167,13 +167,6 @@ sub new() {
 
 	$self->{'_dbi'} = _createDBI(\%conf);
 
-	if($conf{'storeCleartextPasswords'} == 1){
-		_warn ("DB has no support for cleartext passwords, but storeCleartextPasswords set") unless _dbCanStoreCleartextPasswords($self);
-	}
-	if($conf{'storeGPGPasswords'} == 1){
-		_warn ("DB has no support for GPG passwords, but storeGPGPasswords set") unless _dbCanStoreCleartextPasswords($self); 
-	}
-
 	bless($self,$class);
 	return $self;
 }
