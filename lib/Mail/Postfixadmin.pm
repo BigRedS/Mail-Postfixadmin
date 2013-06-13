@@ -149,11 +149,9 @@ for example, change the key used later on with:
 sub new() {
 	my $class = shift;
 	my %defaults = (
-		something => '1',
 	);
 	my %params = @_;
 	my %conf = (%defaults, %params);
-
 	my $self = {};
 
 	my %_tables = _tables();
@@ -164,7 +162,7 @@ sub new() {
 	
 	# Some config comes straight from PostfixAdmin's config file:
 	foreach(qw/database_password database_host database_prefix database_name database_type database_user/){
-		$conf->{$_} = $self->{'_postfixAdminConfig'}->{$_} unless exists($conf->{$_});
+		$conf{$_} = $self->{'_postfixAdminConfig'}->{$_} unless exists($conf{$_});
 	}
 
 	$self->{'_dbi'} = _createDBI(\%conf);
@@ -1801,9 +1799,9 @@ options.
 sub _createDBI{
 	my $conf = shift;
 	my $dataSource = "DBI:".$conf->{'database_type'}.":".$conf->{'database_name'};
-	my $username   = $conf->{'database_username'};
+	my $username   = $conf->{'database_user'};
 	my $password   = $conf->{'database_password'};
-	my $dbi = $DBI->connect($dataSource, $username, $password);	
+	my $dbi = DBI->connect($dataSource, $username, $password);	
 	if (!$dbi){
 		_warn("No dbi object created");
 		return;
