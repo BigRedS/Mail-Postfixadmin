@@ -160,6 +160,13 @@ sub new() {
 	$self->{'_tables'} = _tables();
 	$self->{'_fields'} = _fields();
 	$self->{'_postfixAdminConfig'} = _parsePostfixAdminConfigFile($conf{'postfixAdminConfigFile'});
+	print Dumper($self->{'_postfixAdminConfig'});
+	
+	# Some config comes straight from PostfixAdmin's config file:
+	foreach(qw/database_password database_host database_prefix database_name database_type database_user/){
+		$conf->{$_} = $self->{'_postfixAdminConfig'}->{$_} unless exists($conf->{$_});
+	}
+
 	$self->{'_dbi'} = _createDBI(\%conf);
 
 	if($conf{'storeCleartextPasswords'} == 1){
@@ -1281,7 +1288,6 @@ pairing will still be written to the domain_admins table.
 sub createAdminUser{
 	my $self = shift;
 	my %opts = @_;
-	print Dumper(%opts);
 	_error("No username passed to createAdminUser") unless $opts{'username'};
 	_error("No domain passed to createAdminUser") unless $opts{'domain'};
 	if($opts{'password_crypt'}){
@@ -1299,13 +1305,19 @@ sub createAdminUser{
 	}
 	# Only insert a username and password if there's not already
 	# that username:
-	unless $self->_dbSelect(
-	     table  => 'admin',
-	     count  => 1,
-	     equals => [ 'username', $opts{'username'} ],
-	)){
-	  	if($opts{'password'}){
-			$self->_warn("User $opts{'user'} already exists; not adding to admin table");
+	if($opts{'password'}){
+		my @usernameIsAlreadyAdmin = $self->_dbSelect(
+		     table  => 'admin',
+		     count  => 1,
+		     equals => [ 'username', $opts{'username'} ],
+		) ;
+		
+		say "============================";
+		say Dumper(@usernameIsAlreadyAdmin);
+		say "============================";
+		if(@usernameIsAlreadyAdmin[0] > 0){
+			$self->_warn("Admin '$opts{'username'}' already exists; not adding to admin table");
+		}else{
 			$self->_dbInsert(
 				data => {
 					username => $opts{'username'},
@@ -1315,7 +1327,6 @@ sub createAdminUser{
 			);
 		}
 	}
-
 	foreach my $domain(@domains){
 		$self->_dbInsert(
 			data => {
@@ -1327,7 +1338,6 @@ sub createAdminUser{
 	}
 }
 
-sub getDomainsAdmins
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
  # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -1660,7 +1670,11 @@ sub _fields(){
 	my %fields;
 	$fields{'admin'} = { 
 	                        'domain'        => 'domain',
-	                        'description'   => 'description'
+	                        'username'	=> 'username',
+				'password'	=> 'password',
+				'created'	=> 'created',
+				'modified'	=> 'modified',
+				'active'	=> 'active'
 	};
 	$fields{'alias'} = {
 				'address'	=> 'address',
@@ -1786,27 +1800,10 @@ options.
 
 sub _createDBI{
 	my $conf = shift;
-	# Here we build a DBI object using whatever DB credentials we can find:
-	my @_dbi;
-	$conf->{'_dbi'} = $conf->{'dbi'};
-	unless(exists($conf->{'_dbi'})){
-		if($conf->{mysqlconf} =~ m@/@){
-			@_dbi = _parseMysqlConfigFile($conf->{mysqlconf});
-		}else{
-			unless(exists($conf->{maincf})){
-				$conf->{maincf} = '/etc/postfix/main.cf';
-			}
-			@_dbi = _parsePostfixConfigFile($conf->{maincf});
-		}	
-		$conf->{'_dbi'} = $_dbi[0];
-		$conf->{dbuser} = $_dbi[1];
-		$conf->{dbpass} = $_dbi[2];
-	}
-	my $dbi = DBI->connect(
-		$conf->{'_dbi'},
-		$conf->{dbuser},
-		$conf->{dbpass}
-	);
+	my $dataSource = "DBI:".$conf->{'database_type'}.":".$conf->{'database_name'};
+	my $username   = $conf->{'database_username'};
+	my $password   = $conf->{'database_password'};
+	my $dbi = $DBI->connect($dataSource, $username, $password);	
 	if (!$dbi){
 		_warn("No dbi object created");
 		return;
@@ -1832,7 +1829,6 @@ Hopefully, a generic sub to pawn all db inserts off onto:
 sub _dbInsert {
 	my $self = shift;
 	my %opts = @_;
-	print Dumper(%opts);
 	_error("_dbInsert called with no table name (this is probably a bug in the module)") unless $opts{'table'};
 	my $table = $self->_tables->{$opts{'table'}};
 	_error ("_dbInsert couldn't resolve passed table ($opts{'table'}) name into a proper table name") unless $table;
@@ -1856,7 +1852,6 @@ sub _dbInsert {
 	}
 	$query =~ s/, $//;
 	$query.=")";
-	say "[$query]";
 
 	my $sth = $self->{'_dbi'}->prepare($query);
 	$sth->execute(@values) or _error ("_dbInsert execute failed: $!\nQuery: $query");
@@ -1898,7 +1893,7 @@ the db with keys as field names.
 
 =cut
 
-sub _dbSelect {
+sub _dbSelect{
 	my $self = shift;
 	my %opts = @_;
 	my $table = $opts{'table'};
@@ -1917,13 +1912,13 @@ sub _dbSelect {
 		}
 		push (@fields, $self->{'_fields'}->{$table}->{$field});
 	}
-
 	my $query = "select ";
 	if (exists($opts{count})){
 		$query .= "count(*) ";
 	}else{
 		$query .= join(", ", @fields);
 	}
+
 	$query .= " from $table ";
 	if ($opts{'equals'} > 0){
 		$query.="where ";
@@ -1946,7 +1941,7 @@ sub _dbSelect {
 		foreach my $equals (@{$opts{'equals'}}){
 			my ($field,$value) = @{$equals};
 			if (exists($self->{'_fields'}->{$table}->{$field})){
-			$field = $self->{'_fields'}->{$table}->{$field};
+				$field = $self->{'_fields'}->{$table}->{$field};
 			}else{
 				_error("Field $field in table $table (used in SQL conditional) not defined");
 			}
@@ -2013,9 +2008,9 @@ Handy wrappers for when I want to simply warn or spit out an error.
 =cut
 
 sub _warn{
-	my $message = shift;
+	my $message = pop;
 	chomp $message;
-	Carp::carp($message."\n");
+	Carp::carp($message);
 }
 sub _error{
 	my $message = shift;
