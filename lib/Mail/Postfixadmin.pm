@@ -31,113 +31,38 @@ as objects. At best, it's an object-considering means of configuring it.
 
         use Mail::Postfixadmin;
 
-	my $p = Mail::Postfixadmin->new();
-	$p->createDomain(
+	my $pfa = Mail::Postfixadmin->new();
+	$pfa->createDomain(
 		domain        => 'example.org',
 		description   => 'an example',
 		num_mailboxes => '0',
 	);
 
-	$p->createUser(
+	$pfa->createUser(
 		username       => 'avi@example.com',
 		password_plain => 'password',
 		name           => 'avi',
 	);
 
-	my %dominfo = $p->getDomainInfo();
+	my %dominfo = $pfa->getDomainInfo();
 
-	my %userinfo = $p->getUserInfo();
+	my %userinfo = $pfa->getUserInfo();
 
-	$p->changePassword('avi@example.com', 'complexpass');
+	$pfa->changePassword('avi@example.com', 'complexpass');
 
 
 =head1 CONSTRUCTOR AND STARTUP
 
 =head2 new()
 
-Creates and returns a new Mail::Postfixadmin object. You probably want to provide 
-some way of determining how to connect to the database; there are three ways, listed 
-in order of precedence (i.e. the third overrules the second which overrules the
-first):
-
-Firstly, you may simply pass nothing to the constructor, and have it parse 
-C</etc/postfix/main.cf>:
-
-  my $v = Mail::Postfixadmin->new();
-
-Secondly, you may pass C<dbi>, C<dbuser> and C<dbpass> which are essentially the
-three arguments to a C<DBI-E<gt>connect> (they are used for exactly this):
+Creates and returns a new Mail::Postfixadmin object; will parse a Postfixadmin 
+c<config.inc.php> file to get all the configuration. It will check some common 
+locations for this file (c</var/www/postfixadmin>, c</etc/postfixadmin>) and you
+may specify the file to parse by passing c<postfixAdminConfigFile>:
 
   my $v = Mail::Postfixadmin->new(
-         dbi	=> 'DBI:mysql:dbname',
-	 dbuser	=> 'username',
-	 dbpass => 'password'
-  );
-
-Thirdly, you may pass the path to C<main.cf> to the constructor. This causes the 
-constructor to parse C<main.cf> to find the path to one of Postfix's MySQL config
-files. The first of these is then parsed to find the MySQL credentials.
-
- my $v = Mail::Postfixadmin->new(
- 	 maincf	=> '/etc/postfix/main.cf'
- );
-
-
-If C<main.cf> is passed, the C<dbi>, C<dbuser> and C<dbpass> values are ignored 
-and overwritten by data found in the files. C<main.cf> is deemed to have been 
-'passed' if its value contains a forward-slash ('C</>').
-
-=head3 PostfixAdmin configuration file
-
-In order to replicate the behaviour of the PostfixAdmin web UI, this module
-attempts to parse its config file. It wont complain if it's not passed one, but
-behaviour in this situation is undefined.
-
-By default, it will test for C</etc/postfixadmin/config.inc.php> and 
-C</var/www/postfixadmin/config.inc.php>, and the first one which is a file will 
-be used. You may pass the path to your config file with the C<PostfixAdminConfigFile> 
-option:
-
-  my $v = Mail::Postfixadmin->new)
   	PostfixAdminConfigFile => '/home/alice/public_html/postfixadmin/config.inc.php';
   )
-
-=head3 Password storage
-
-By default, passwords are crypted with Crypt::PasswdMD5 and stored in the 
-C<password> field of the relevant table. Optionally, you may also have them 
-stored in cleartext and/or PGP-encrypted forms. Currently, GPG and clear-text 
-password storage is considered experimental.
-
-To do this you need to set the C<storeCleartextPassword> and/or 
-C<storeGPGPassword> keys to a non-zero value and make sure you have the correct
-fields in your DB; cleartext passwords need a C<password_clear> field and GPG 
-ones a C<password_gpg> field in the C<mailbox> table. GPG passwords also require 
-an appropriately configured GPG keyring.
-
-=head4 GPG Passwords
-
-There's a number of other keys for GPG password storage:
-
-  gpgSecretKey  The ID of the secret key.
-  gpgRecipient  One of the ID fields of the public key.
-  gpgBinary	Optional, path to the GPG binary. Defaults to /usr/bin/gpg
-  gpgPassphrase Passphrase for the key(s).
-
-A complete example might read:
-
-  my $v = Mail::Postfixadmin->new(
-        storeGPGPassword => 1,
-	gpgBinary     => '/usr/local/bin/gpg',
-        gpgSecretKey  => '102FC956',
-        gpgRecipient  => 'postfixadmin@avi.co',
-        gpgPassphrase => 'Ue5gi2sei',
-  );
-
-Each of these appear as attributes of the object with the same name so you can, 
-for example, change the key used later on with:
-
-  $p->gpgSecretKey = "102FC958";
 
 
 );
