@@ -158,7 +158,6 @@ sub new() {
 	$self->{'_tables'} = _tables();
 	$self->{'_fields'} = _fields();
 	$self->{'_postfixAdminConfig'} = _parsePostfixAdminConfigFile($conf{'postfixAdminConfigFile'});
-	print Dumper($self->{'_postfixAdminConfig'});
 
 	#As much config as possible comes from PostfixAdmin's config file:
 	foreach(qw/database_password database_host database_prefix database_name database_type database_user/){
