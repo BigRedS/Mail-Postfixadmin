@@ -1569,34 +1569,6 @@ sub _parsePostfixConfigFile{
 	return @dbiString;
 }
 
-=head3 _parseMysqlConfigFile()
-
-Parses a MySQL configuration file. Used by _createDBI() which is called by the constructor.
-
-=cut
-
-sub _parseMysqlConfigFile{
-	local $/ = "\n";
-	my $confFile = shift;
-	open(my $f, "<", $confFile) or die ("Error opening MySQL config file ($confFile) : $!");
-	my ($user, $password, $host, $port, %db);
-	foreach(<$f>){
-		chomp $_;
-		my ($k,$v) = split(/\s*=\s*/, $_);
-		given($k){
-			when(/^user/){$db{user}=$v;}
-			when(/^password/){$db{pass}=$v;}
-			when(/^host/){$db{host}=$v;}
-			##TODO: find out how you're supposed to do this in a mysql.cnf:
-			when(/^database/){$db{name}=$v;}
-		}
-	}
-
-	my @dbiString = ("DBI:mysql:$db{'name'}:host=$db{'host'}:$db{'port'}", "$db{'user'}", "$db{'pass'}");
-	return @dbiString;
-}
-
-
 
 =cut
 
