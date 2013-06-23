@@ -439,7 +439,7 @@ sub getAliasUserTargets{
 		fields	=> ['goto'],
 		equals	=> [ 'address', $user ],
 	);
-	return $gotos[0]->{'goto'};
+	return split(/,/, $gotos[0]->{'goto'});
 }
 
 =head3 getUserInfo()
