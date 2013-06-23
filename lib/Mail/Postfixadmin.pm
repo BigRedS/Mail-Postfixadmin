@@ -1109,7 +1109,7 @@ sub removeAliasUser{
 	if ($user eq ''){
 		_error("No user passed to removeAliasUser");
 	}
-	if (!$self->userIsAlias){
+	if (!$self->userIsAlias($user)){
 		$self->{infoStr} = "user is not an alias ($user)";
 		return 3;
 	}
