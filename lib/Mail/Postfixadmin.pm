@@ -472,7 +472,7 @@ sub getUserInfo(){
 		fields => ['*'],
 		equals => ['username', $user]
 	);
-	return @results;
+	return $results[0];
 }
 
 =head3 getDomainInfo()
@@ -1794,10 +1794,14 @@ sub _dbSelect{
 	}
 
 	foreach my $field (@{$opts{'fields'}}){
-		unless(exists($self->{'_fields'}->{$table}->{$field})){
-			_error("Field $self->{'_fields'}->{$table}->{$field} in table $table not defined in %_fields");
+		if($field =~ /^\*$/){
+			push(@fields, $field);
+		}else{
+			unless(exists($self->{'_fields'}->{$table}->{$field})){
+				_error("Field $self->{'_fields'}->{$table}->{$field} in table $table not defined in %_fields");
+			}
+			push (@fields, $self->{'_fields'}->{$table}->{$field});
 		}
-		push (@fields, $self->{'_fields'}->{$table}->{$field});
 	}
 	my $query = "select ";
 	if (exists($opts{count})){
