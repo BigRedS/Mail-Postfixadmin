@@ -11,7 +11,7 @@ use Carp;
 use Data::Dumper;
 
 our $VERSION;
-$VERSION = "0.0.20130623";
+$VERSION = "0.20130624";
 
 =pod
 
@@ -29,26 +29,26 @@ This is also completely not an object-orientated interface to the
 Postfix/Dovecot mailer, since it doesn't actually represent anything sensibly 
 as objects. At best, it's an object-considering means of configuring it.
 
-        use Mail::Postfixadmin;
-
-	my $pfa = Mail::Postfixadmin->new();
-	$pfa->createDomain(
-		domain        => 'example.org',
-		description   => 'an example',
-		num_mailboxes => '0',
-	);
-
-	$pfa->createUser(
-		username       => 'avi@example.com',
-		password_plain => 'password',
-		name           => 'avi',
-	);
-
-	my %dominfo = $pfa->getDomainInfo();
-
-	my %userinfo = $pfa->getUserInfo();
-
-	$pfa->changePassword('avi@example.com', 'complexpass');
+    use Mail::Postfixadmin;
+    
+    my $pfa = Mail::Postfixadmin->new();
+    $pfa->createDomain(
+        domain        => 'example.org',
+        description   => 'an example',
+        num_mailboxes => '0',
+    );
+    
+    $pfa->createUser(
+        username       => 'avi@example.com',
+        password_plain => 'password',
+        name           => 'avi',
+    );
+    
+    my %dominfo = $pfa->getDomainInfo();
+    
+    my %userinfo = $pfa->getUserInfo();
+    
+    $pfa->changePassword('avi@example.com', 'complexpass');
 
 
 =head1 CONSTRUCTOR AND STARTUP
@@ -446,16 +446,16 @@ sub getAliasUserTargets{
 
 Returns a hash containing info about the user:
 
-	username	Username. Should be an email address.
-	password	The crypted password of the user
-	name		The human name associated with the username
-	domain		The domain the user is associated with
-	local_part	The local part of the email address
-	maildir		The path to the maildir *relative to the maildir root 
-			configured in Postfix/Dovecot*
-	active		Whether or not the user is active
-	created		Creation date
-	modified	Last modified data
+  username   Username. Should be an email address.
+  password   The crypted password of the user
+  name       The human name associated with the username
+  domain     The domain the user is associated with
+  local_part The local part of the email address
+  maildir    The path to the maildir *relative to the maildir root 
+             configured in Postfix/Dovecot*
+  active     Whether or not the user is active
+  created    Creation date
+  modified   Last modified data
 
 Returns undef if the user doesn't exist.
 
@@ -479,20 +479,20 @@ sub getUserInfo(){
 
 Returns a hash containing info about a domain. Keys:
 
-	domain		The domain name
-	description	Content of the description field
-	quota		Mailbox size quota
-	transport	Postfix transport (usually virtual)
-	active		Whether the domain is active or not
-	backupmx0	Whether this is a  backup MX for the domain
-	mailboxes	Array of mailbox names associated with the domain 
-			(note: the full username, not just the local part)
-	modified	last modified date 
-	num_mailboxes   Count of the mailboxes (effectively, the length of the 
-			array in `mailboxes`)
-	created		Creation data
-	aliases		Alias quota for the domain
-	maxquota	Mailbox quota for teh domain
+  domain          The domain name
+  description     Content of the description field
+  quota           Mailbox size quota
+  transport       Postfix transport (usually 'virtua')
+  active          Whether the domain is active or not (0 or 1)
+  backupmx        Whether this is a  backup MX for the domain (0 or 1)
+  mailboxes       Array of mailbox names associated with the domain 
+                  (note: the full username, not just the local part)
+  modified        last modified date as returned by the DB
+  num_mailboxes   Count of the mailboxes (effectively, the length of the 
+                  array in `mailboxes`)
+  created         Creation date
+  aliases         Alias quota for the domain
+  maxquota        Mailbox quota for the domain
 
 Returns undef if the domain doesn't exist.
 
@@ -539,9 +539,9 @@ sub getDomainInfo(){
 
 =head3 cryptPassword()
 
-This probably has no real use, except for where other functions use it. It 
-should let you specify a salt for the password, but doesn't yet. It expects a 
-cleartext password as an argument, and returns the crypted sort. 
+This probably has no real use, except for where other functions use it, but
+it will always be the currently-favoured Dovecot encrytion scheme. Takes the
+cleartext as its argument, returns the crypt.
 
 =cut
 
@@ -550,37 +550,6 @@ sub cryptPassword(){
 	my $password = shift;
 	my $cryptedPassword = Crypt::PasswdMD5::unix_md5_crypt($password);
 	return $cryptedPassword;
-}
-
-=head3 cryptPasswordGPG()
-
-Encrypts a password with GPG. Only likely to work if storeGPGPasswords is set to a 
-non-zero value but happy to try without it.
-
-=cut
-
-sub cryptPasswordGPG(){
-	my $self = shift;
-	my $password = shift;
-	my $gpg = $self->{'gpg'};
-	$gpg->passphrase('');
-	return join("\n", $gpg->encrypt($password, $self->{'gpgRecipient'}));
-}
-
-=head3 cryptPasswordGPG()
-
-Decrypts a password with GPG. Only likely to work if storeGPGPasswords is set to a 
-non-zero value but happy to try without it.
-
-=cut
-
-sub decryptPasswordGPG(){
-	my $self = shift;
-	my $ciphertext = shift;
-	my $gpg = $self->{'gpg'};
-	$gpg->secretkey($self->{'gpgSecretKey'});
-	my ($plaintext, $signature) = $gpg->verify($ciphertext);
-	return $plaintext;
 }
 
 =head3 changePassword() 
@@ -652,16 +621,16 @@ output by C<getDomainInfo()>. None are necessary except C<domain>.
 
 Defaults are set as follows:
 
-	domain		None; required.
-	description	An empty string
-	quota		MySQL's default
-	transport	'virtual'
-	active		1 (active)
-	backupmx0	MySQL's default
-	modified	now
-	created		now
-	aliases		MySQL's default
-	maxquota	MySQL's default
+  domain       None; required.
+  description  ""
+  quota        MySQL's default
+  transport    'virtual'
+  active       1 (active)
+  backupmx0    MySQL's default
+  modified     now
+  created      now
+  aliases      MySQL's default
+  maxquota     MySQL's default
 
 Defaults are only set on keys that haven't been instantiated. If you set a key 
 to an empty string, it will not be set to the default - null will be passed to 
@@ -728,16 +697,16 @@ crypted with C<cryptPasswd()> and then used.
 
 Defaults are mostly sane where values aren't explicitly passed:
 
- username	required; no default
- password	null
- name		null
- maildir 	deduced from PostfixAdmin config. 
- quota		MySQL default (normally zero, which represents infinite)
- local_part	the part of the username to the left of the first '@'
- domain		the part of the username to the right of the last '@'
- created	now
- modified	now
- active		MySQL's default
+ username    required; no default
+ password    null
+ name        null
+ maildir     deduced from PostfixAdmin config. 
+ quota       MySQL default (normally zero, which represents infinite)
+ local_part  the part of the username to the left of the first '@'
+ domain      the part of the username to the right of the last '@'
+ created     now
+ modified    now
+ active      MySQL's default
 
 
 On success, returns a hash describing the user. You can inspect this to see 
@@ -818,22 +787,21 @@ sub createUser(){
 
 Creates an alias domain:
 
- $p->createAliasDomain( 
- 	target => 'target.com',
- 	alias  => 'alias.com'
+  $p->createAliasDomain( 
+    target => 'target.com',
+    alias  => 'alias.com'
  );
 
-something@target.com. Notably, it does not check that the domain is not already
-aliased elsewhere, so you can end up aliasing one domain to two targets which 
-is probably not what you want.
+Will cause mail sent to any address at alias.com to be forwarded on to the same
+left-hand-side at target.com
 
 You can pass three other keys in the hash, though only C<target> and C<alias> 
 are required:
- created	'created' date. Is passed verbatim to the db so should be in a 
- 		format it understands.
- modified	Ditto but for the modified date
- active		The status of the domain. Again, passed verbatim to the db, 
- 		but probably should be a '1' or a '0'.
+ created  'created' date. Is passed verbatim to the db so should be in a 
+           format it understands.
+ modified  Ditto but for the modified date
+ active    The status of the domain. Again, passed verbatim to the db, 
+           but probably should be a '1' or a '0'.
 
 =cut
 
@@ -893,10 +861,10 @@ sub createAliasDomain {
 
 Creates an alias user:
 
- $p->createAliasUser( 
- 	target => 'target@example.org');
- 	alias  => 'alias@example.net
- );
+  $p->createAliasUser( 
+    target => 'target@example.org');
+    alias  => 'alias@example.net
+  );
 
 will cause all mail sent to alias@example.com to be delivered to target@example.net. 
 
@@ -907,9 +875,9 @@ You may forward to more than one address by passing a comma-separated string:
  	alias  => 'alias@example.net',
  );
 
-For some reason, the domain is stored separately in the db. If you pass a 
-C<domain> key in the hash, this is used. If not a regex is applied to the username 
-( C</\@(.+)$/> ). If that doesn't match, it Croaks.
+The domain is stored separately in the db. If you pass a C<domain> key in the hash, 
+this is used. If not a regex is applied to the username ( C</\@(.+)$/> ). If that 
+doesn't match, it Croaks.
 
 You may pass three other keys in the hash, though only C<target> and C<alias> are required:
 
@@ -923,7 +891,6 @@ In full:
 		source   => 'someone@example.org',
 		target	 => "target@example.org, target@example.net",
 		domain	 => 'example.org',
-will cause all mail sent to something@alias.com to be delivered to 
 		modified => $p->now;
 		created	 => $p->now;
 		active   => 1
@@ -1128,10 +1095,10 @@ an arrayref of domains as values. Accepts a a domain as an optional
 argument, when that is supplied will only return users who are admins 
 of that domain, and each user's array will be a single value (that domain).
 
-    my %admins = $pfa->getAdminUsers();
-    foreach my $username (keys(%admins)){
-        print "$username is an admin of ", join(" ", @{$admins{$username}}), "\n";
-    }
+  my %admins = $pfa->getAdminUsers();
+  foreach my $username (keys(%admins)){
+    print "$username is an admin of ", join(" ", @{$admins{$username}}), "\n";
+  }
 
 =cut
 
@@ -1227,9 +1194,9 @@ sub createAdminUser{
 		     equals => [ 'username', $opts{'username'} ],
 		) ;
 		
-		say "============================";
-		say Dumper(@usernameIsAlreadyAdmin);
-		say "============================";
+#	say "============================";
+#	say Dumper(@usernameIsAlreadyAdmin);
+#	say "============================";
 		if(@usernameIsAlreadyAdmin[0] > 0){
 			$self->_warn("Admin '$opts{'username'}' already exists; not adding to admin table");
 		}else{
@@ -1257,14 +1224,14 @@ sub createAdminUser{
  # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-=head2 Utilities
-
-=head3 generatePassword()
-
-Generates a password. It's what all the internal things that offer to
-generate passwords use.
-
-=cut
+#=head2 Utilities
+#
+#=head3 generatePassword()
+#
+#Generates a password. It's what all the internal things that offer to
+#generate passwords use.
+#
+#=cut
 
 sub generatePassword() {
 	my $self = shift;
@@ -1283,28 +1250,28 @@ sub generatePassword() {
 	}
 	return $password;
 }
-=head3 getOptions()
-
-Returns a hash of the options passed to the constructor plus whatever defaults 
-were set, in the form that the constructor expects.
-
-=cut
+#=head3 getOptions()
+#
+#Returns a hash of the options passed to the constructor plus whatever defaults 
+#were set, in the form that the constructor expects.
+#
+#=cut
 
 sub getOptions{
 	my $self = shift;
 	my %params = %{$self->{_params}};
 	return %params;
 }
-=head3 getTables getFields setTables setFields
-
-C<get>ters return a hash defining the table and field names respectively, the
-C<set>ters accept hashes in the same format for redefining the table layout.
-
-Note that this is a representation of what the object assumes the db to be - 
-there's no guessing at all as to what shape the db is so you'll need to tell
-the object through these if you want to change them.
-
-=cut
+#=head3 getTables getFields setTables setFields
+#
+#C<get>ters return a hash defining the table and field names respectively, the
+#C<set>ters accept hashes in the same format for redefining the table layout.
+#
+#Note that this is a representation of what the object assumes the db to be - 
+#there's no guessing at all as to what shape the db is so you'll need to tell
+#the object through these if you want to change them.
+#
+#=cut
 
 sub getTables(){
 	my $self = shift;
@@ -1328,24 +1295,6 @@ sub setFields(){
 }
 
 
-=head3 getdbCredentials()
-
-Returns a hash of the db Credentials as expected by the constructor. Keys are 
-C<dbi> C<dbuser> and C<dbpass>. These are the three arguments for the DBI 
-constructor; C<dbi> is the full connection string (including C<DBI:mysql> at 
-the beginning.
-
-=cut
-
-sub getdbCredentials{
-	my $self = shift;
-	my %return;
-	foreach(qw/dbi dbuser dbpass/){
-		$return{$_} = $self->{_params}{$_};
-	}
-	return %return;
-}
-
 =head3 version()
 
 Returns the version string
@@ -1365,7 +1314,7 @@ If you use these and they eat your cat feel free to tell me, but don't expect me
 =head3 _createMailboxPath()
 
 Deals with the 'mailboxes' bit of the config, the 'canonical' version of which can be found
-about halfway down create-mailbox.php:
+about halfway down the create-mailbox.php shipped with Postfixadmin:
 
   // Mailboxes
   // If you want to store the mailboxes per domain set this to 'YES'.
@@ -1452,48 +1401,6 @@ sub _parsePostfixAdminConfigFile{
 	return \%pfaConf;
 }
 
-=head3 _parsePostfixConfigFile()
-
-Postfix config files trying to find some DB credentials.
-
-=cut
-
-sub _parsePostfixConfigFile{
-	my $confFile = shift;
-	my $maincf = shift;
-	my $somefile;
-	open(my $conf, "<", $confFile) or die ("Error opening postfix config file at $confFile : $!");
-	while(<$conf>){
-	        if(/mysql:/){
-			$somefile = (split(/mysql:/, $_))[1];
-			last;
-       	        }
-	}
-        close($conf);
-        $somefile =~ s/\/\//\//g;
-        chomp $somefile;
-        open(my $fh, "<", $somefile) or die ("Error opening postfixy db conf file ($somefile) : $!");
-	my %db;
-        while(<$fh>){
-                if (/=/){
-			my $line = $_;
-                        $line =~ s/(\s*#.+)//;
-                        $line =~ s/\s*$//;
-                        my ($k,$v) = split(/\s*=\s*/, $_);
-                        chomp $v;
-                        given($k){
-                                when(/user/){$db{user}=$v;}
-                                when(/password/){$db{pass}=$v;}
-                                when(/host/){$db{host}=$v;}
-                                when(/dbname/){$db{name}=$v;}
-                        }
-                }
-        }
-	my @dbiString = ("DBI:mysql:$db{'name'}:host=$db{'host'}", "$db{'user'}", "$db{'pass'}");
-	return @dbiString;
-}
-
-
 =cut
 
 sub dbCanStoreCleartextPasswords(){
@@ -1506,14 +1413,14 @@ sub dbCanStoreCleartextPasswords(){
 	}
 }
 
-=head3 now()
-
-Returns the current time in a format suitable for passing straight to the database. Currently is just in MySQL 
-datetime format (YYYY-MM-DD HH-MM-SS).
-
-This shouldn't need to exist, really.
-
-=cut
+#=head3 now()
+#
+#Returns the current time in a format suitable for passing straight to the database. Currently is just in MySQL 
+#datetime format (YYYY-MM-DD HH-MM-SS).
+#
+#This shouldn't need to exist, really.
+#
+#=cut
 
 sub now{
 	return _mysqlNow();
@@ -1633,50 +1540,6 @@ sub _dbCanStoreCleartextPasswords{
 	return 1;
 }
 
-=head3 _dbCanStoreGPGPasswords()
-
-Attempts to ascertain whether the DB can store GPG passwords. Basically
-checks that whatever C<_fields()> reckons is the name of the field for storing
-GPG passwords in is the name of a column that exists in the db.
-
-=cut 
-
-sub _dbCanStoreGPGPasswords{
-	my $self = shift;
-	if ($self->{'storeGPGPassword'} > 0){
-		my $dbName = (split(/:/, $self->{'_params'}->{'_dbi'}))[2];
-		my $tableName = $self->{'_tables'}->{'mailbox'};
-		my $fieldName = $self->{'_fields'}->{'mailbox'}->{'password_gpg'};
-		if (_fieldExists($self->{'_dbi'}, $dbName, $tableName, $fieldName)){
-			# If we are supposed to be storing GPG passwords, we need the
-			# appropriate module.
-			if (eval {require Crypt::GPG}){
-				Crypt::GPG->import();
-			}else{
-				_error ("Error require()ing Crypt::GPG to allow support for storeGPGPassword:\n$@");
-			}
-			my $gpg = new Crypt::GPG;
-			$self->{'gpgRecipient'} = $self->{'_params'}->{'gpgRecipient'};
-			if ($self->{'gpgRecipient'} !~ /.+/){
-				_error ("GPG support requires a value for gpgRecipient be passed to the constructor");
-			}
-			$self->{'_gpgBinary'} = $self->{'_params'}->{'gpgBinary'} || '/usr/bin/gpg';
-			unless( -x $self->{'_gpgBinary'}){
-				_error ("GPG binary at '$self->{'_gpgbinary'}' either non-existant or not-executable");
-			}
-			$gpg->gpgbin($self->{'_gpgBinary'});
-			$self->{'gpgSecretKey'} = $self->{'_params'}->{'gpgSecretKey'} || _error ("storeGPGpassword set but gpgSecretKey not set");
-			unless($gpg->keydb($self->{'gpgRecipient'})){
-				_error ("No key with identifier '$self->{'gpgRecipient'}' in db");
-			}
-			$self->{'gpg'} = $gpg;
-		}else{
-			_error ("storeGPGPassword is set non-zero but table '$tableName' has no field '$fieldName' to store GPG-encrypted passwords in");
-		}
-	return;
-	}
-}
-
 =head3 _createDBI()
 
 Creates a DBI object. Called by the constructor and passed a reference
@@ -1701,7 +1564,7 @@ sub _createDBI{
 
 =head3 _dbInsert()
 
-Hopefully, a generic sub to pawn all db inserts off onto:
+A generic sub to pawn all db inserts off onto:
 
 	_dbInsert(
 		data => (
@@ -1858,12 +1721,12 @@ sub _dbSelect{
 	return @return;
 }
 
-=head3 _mysqlNow()
-
- Returns a timestamp of its time of execution in a format ready for inserting into MySQL
- (YYYY-MM-DD hh:mm:ss)
-
-=cut
+#=head3 _mysqlNow()
+#
+# Returns a timestamp of its time of execution in a format ready for inserting into MySQL
+# (YYYY-MM-DD hh:mm:ss)
+#
+#=cut
 
 sub _mysqlNow() {
 	
@@ -1874,11 +1737,11 @@ sub _mysqlNow() {
 }
 
 
-=head3 _fieldExists()
-
-Checks whether a field exists in the db. Must exist in the _field hash.
-
-=cut
+#=head3 _fieldExists()
+#
+#Checks whether a field exists in the db. Must exist in the _field hash.
+#
+#=cut
 
 sub _fieldExists() {
 	my ($dbi,$dbName,$tableName,$fieldName) = @_;
@@ -1892,11 +1755,11 @@ sub _fieldExists() {
 	return;
 }
 
-=head3 _warn() and _error()
-
-Handy wrappers for when I want to simply warn or spit out an error.
-
-=cut
+#=head3 _warn() and _error()
+#
+#Handy wrappers for when I want to simply warn or spit out an error.
+#
+#=cut
 
 sub _warn{
 	my $message = pop;
@@ -1909,140 +1772,127 @@ sub _error{
 	Carp::croak($message."\n");
 }	
 
-=head1 CLASS VARIABLES
-
-=cut
-
-#=head3 errstr
+#=head1 CLASS VARIABLES
 #
-#C<$p->errstr> contains the error message of the last action. If it's empty (i.e. C<$v->errstr eq ''>) then it should be safe to assume
-#nothing went wrong. Currently, it's only used where the creation or deletion of something appeared to succeed, but the something 
-#didn't begin to exist or cease to exist.
+#=cut
+
+
+#=head3 dbi
 #
-#=head3 infostr
+#C<dbi> is the dbi object used by the rest of the module, having guessed/set the appropriate credentials. 
+#You can use it as you would the return directly from a $dbi->connect:
 #
-#C<$v->infostr> is more useful.
-#Generally, it contains the SQL queries used to perform whatever job the function performed, excluding any ancilliary checks. If it
-#took more than one SQL query, they're concatenated with semi-colons between them.
+#  my $sth = $p->{'_dbi'}->prepare($query);
+#  $sth->execute;
 #
-#It also populated when trying to create something that exists, or delete something that doesn't.
-
-=head3 dbi
-
-C<dbi> is the dbi object used by the rest of the module, having guessed/set the appropriate credentials. 
-You can use it as you would the return directly from a $dbi->connect:
-
-  my $sth = $p->{'_dbi'}->prepare($query);
-  $sth->execute;
-
-=head3 params
-
-C<params> is the hash passed to the constructor, including any interpreting it does. If you've chosen to authenticate by passing
-the path to a main.cf file, for example, you can use the database credentials keys (C<dbuser, dbpass and dbi>) to initiate your 
-own connection to the db (though you may as well use dbi, above). 
-
-Other variables are likely to be put here as I decide I'd like to use them :)
-
-=head1 DIAGNOSTICS
-
-Functions generally return:
-
-=over
-
-=item * null on failure
-
-=item * 1 on success
-
-=item * 2 where there was nothing to do (as if their job had already been performed)
-
-=back
-
-See C<errstr> and C<infostr> for better diagnostics.
-
-=head2 The DB schema
-
-Internally, the db schema is stored in two hashes. 
-
-C<%_tables> is a hash storing the names of the tables. The keys are the values used internally to refer to the 
-tables, and the values are the names of the tables in the db.
-
-C<%_fields> is a hash of hashes. The 'top' hash has as keys the internal names for the tables (as found in 
-C<getTables()>), with the values being hashes representing the tables. Here, the key is the name as used internally, 
-and the value the names of those fields in the SQL.
-
-Currently, the assumptions made of the database schema are very small. We asssume four tables, 'mailbox', 'domain', 
-'alias' and 'alias domain':
-
- mysql> describe mailbox;
- +------------+--------------+------+-----+---------------------+-------+
- | Field      | Type         | Null | Key | Default             | Extra |
- +------------+--------------+------+-----+---------------------+-------+
- | username   | varchar(255) | NO   | PRI | NULL                |       |
- | password   | varchar(255) | NO   |     | NULL                |       |
- | name       | varchar(255) | NO   |     | NULL                |       |
- | maildir    | varchar(255) | NO   |     | NULL                |       |
- | quota      | bigint(20)   | NO   |     | 0                   |       |
- | local_part | varchar(255) | NO   |     | NULL                |       |
- | domain     | varchar(255) | NO   | MUL | NULL                |       |
- | created    | datetime     | NO   |     | 0000-00-00 00:00:00 |       |
- | modified   | datetime     | NO   |     | 0000-00-00 00:00:00 |       |
- | active     | tinyint(1)   | NO   |     | 1                   |       |
- +------------+--------------+------+-----+---------------------+-------+
- 10 rows in set (0.00 sec)
-   
- mysql> describe domain;
- +-------------+--------------+------+-----+---------------------+-------+
- | Field       | Type         | Null | Key | Default             | Extra |
- +-------------+--------------+------+-----+---------------------+-------+
- | domain      | varchar(255) | NO   | PRI | NULL                |       |
- | description | varchar(255) | NO   |     | NULL                |       |
- | aliases     | int(10)      | NO   |     | 0                   |       |
- | mailboxes   | int(10)      | NO   |     | 0                   |       |
- | maxquota    | bigint(20)   | NO   |     | 0                   |       |
- | quota       | bigint(20)   | NO   |     | 0                   |       |
- | transport   | varchar(255) | NO   |     | NULL                |       |
- | backupmx    | tinyint(1)   | NO   |     | 0                   |       |
- | created     | datetime     | NO   |     | 0000-00-00 00:00:00 |       |
- | modified    | datetime     | NO   |     | 0000-00-00 00:00:00 |       |
- | active      | tinyint(1)   | NO   |     | 1                   |       |
- +-------------+--------------+------+-----+---------------------+-------+
- 11 rows in set (0.00 sec)
-
- mysql> describe alias_domain;
- +---------------+--------------+------+-----+---------------------+-------+
- | Field         | Type         | Null | Key | Default             | Extra |
- +---------------+--------------+------+-----+---------------------+-------+
- | alias_domain  | varchar(255) | NO   | PRI | NULL                |       |
- | target_domain | varchar(255) | NO   | MUL | NULL                |       |
- | created       | datetime     | NO   |     | 0000-00-00 00:00:00 |       |
- | modified      | datetime     | NO   |     | 0000-00-00 00:00:00 |       |
- | active        | tinyint(1)   | NO   | MUL | 1                   |       |
- +---------------+--------------+------+-----+---------------------+-------+
- 5 rows in set (0.00 sec)
-
- mysql> describe alias;
- +----------+--------------+------+-----+---------------------+-------+
- | Field    | Type         | Null | Key | Default             | Extra |
- +----------+--------------+------+-----+---------------------+-------+
- | address  | varchar(255) | NO   | PRI | NULL                |       |
- | goto     | text         | NO   |     | NULL                |       |
- | domain   | varchar(255) | NO   | MUL | NULL                |       |
- | created  | datetime     | NO   |     | 0000-00-00 00:00:00 |       |
- | modified | datetime     | NO   |     | 0000-00-00 00:00:00 |       |
- | active   | tinyint(1)   | NO   |     | 1                   |       |
- +----------+--------------+------+-----+---------------------+-------+
- 6 rows in set (0.00 sec)
-
-And, er, that's it. If you wish to store cleartext passwords (by passing a value greater than 0 for 'storeCleartextPassword'
-to the constructor) you'll need a 'password_cleartext' column on the mailbox field. 
-
-C<getFields> returns C<%_fields>, C<getTables %_tables>. C<setFields> and C<setTables> resets them to the hash passed as an 
-argument. It does not merge the two hashes.
-
-This is the only way you should be interfering with those hashes.
-
-Since the module does no guesswork as to the db schema (yet), you might need to use these to get it to load 
-yours. Even when it does do that, it might guess wrongly.
+#=head3 params
+#
+#C<params> is the hash passed to the constructor, including any interpreting it does. If you've chosen to authenticate by passing
+#the path to a main.cf file, for example, you can use the database credentials keys (C<dbuser, dbpass and dbi>) to initiate your 
+#own connection to the db (though you may as well use dbi, above). 
+#
+#Other variables are likely to be put here as I decide I'd like to use them :)
+#
+#=head1 DIAGNOSTICS
+#
+#Functions generally return:
+#
+#=over
+#
+#=item * null on failure
+#
+#=item * 1 on success
+#
+#=item * 2 where there was nothing to do (as if their job had already been performed)
+#
+#=back
+#
+#See C<errstr> and C<infostr> for better diagnostics.
+#
+#=head2 The DB schema
+#
+#Internally, the db schema is stored in two hashes. 
+#
+#C<%_tables> is a hash storing the names of the tables. The keys are the values used internally to refer to the 
+#tables, and the values are the names of the tables in the db.
+#
+#C<%_fields> is a hash of hashes. The 'top' hash has as keys the internal names for the tables (as found in 
+#C<getTables()>), with the values being hashes representing the tables. Here, the key is the name as used internally, 
+#and the value the names of those fields in the SQL.
+#
+#Currently, the assumptions made of the database schema are very small. We asssume four tables, 'mailbox', 'domain', 
+#'alias' and 'alias domain':
+#
+# mysql> describe mailbox;
+# +------------+--------------+------+-----+---------------------+-------+
+# | Field      | Type         | Null | Key | Default             | Extra |
+# +------------+--------------+------+-----+---------------------+-------+
+# | username   | varchar(255) | NO   | PRI | NULL                |       |
+# | password   | varchar(255) | NO   |     | NULL                |       |
+# | name       | varchar(255) | NO   |     | NULL                |       |
+# | maildir    | varchar(255) | NO   |     | NULL                |       |
+# | quota      | bigint(20)   | NO   |     | 0                   |       |
+# | local_part | varchar(255) | NO   |     | NULL                |       |
+# | domain     | varchar(255) | NO   | MUL | NULL                |       |
+# | created    | datetime     | NO   |     | 0000-00-00 00:00:00 |       |
+# | modified   | datetime     | NO   |     | 0000-00-00 00:00:00 |       |
+# | active     | tinyint(1)   | NO   |     | 1                   |       |
+# +------------+--------------+------+-----+---------------------+-------+
+# 10 rows in set (0.00 sec)
+#   
+# mysql> describe domain;
+# +-------------+--------------+------+-----+---------------------+-------+
+# | Field       | Type         | Null | Key | Default             | Extra |
+# +-------------+--------------+------+-----+---------------------+-------+
+# | domain      | varchar(255) | NO   | PRI | NULL                |       |
+# | description | varchar(255) | NO   |     | NULL                |       |
+# | aliases     | int(10)      | NO   |     | 0                   |       |
+# | mailboxes   | int(10)      | NO   |     | 0                   |       |
+# | maxquota    | bigint(20)   | NO   |     | 0                   |       |
+# | quota       | bigint(20)   | NO   |     | 0                   |       |
+# | transport   | varchar(255) | NO   |     | NULL                |       |
+# | backupmx    | tinyint(1)   | NO   |     | 0                   |       |
+# | created     | datetime     | NO   |     | 0000-00-00 00:00:00 |       |
+# | modified    | datetime     | NO   |     | 0000-00-00 00:00:00 |       |
+# | active      | tinyint(1)   | NO   |     | 1                   |       |
+# +-------------+--------------+------+-----+---------------------+-------+
+# 11 rows in set (0.00 sec)
+#
+# mysql> describe alias_domain;
+# +---------------+--------------+------+-----+---------------------+-------+
+# | Field         | Type         | Null | Key | Default             | Extra |
+# +---------------+--------------+------+-----+---------------------+-------+
+# | alias_domain  | varchar(255) | NO   | PRI | NULL                |       |
+# | target_domain | varchar(255) | NO   | MUL | NULL                |       |
+# | created       | datetime     | NO   |     | 0000-00-00 00:00:00 |       |
+# | modified      | datetime     | NO   |     | 0000-00-00 00:00:00 |       |
+# | active        | tinyint(1)   | NO   | MUL | 1                   |       |
+# +---------------+--------------+------+-----+---------------------+-------+
+# 5 rows in set (0.00 sec)
+#
+# mysql> describe alias;
+# +----------+--------------+------+-----+---------------------+-------+
+# | Field    | Type         | Null | Key | Default             | Extra |
+# +----------+--------------+------+-----+---------------------+-------+
+# | address  | varchar(255) | NO   | PRI | NULL                |       |
+# | goto     | text         | NO   |     | NULL                |       |
+# | domain   | varchar(255) | NO   | MUL | NULL                |       |
+# | created  | datetime     | NO   |     | 0000-00-00 00:00:00 |       |
+# | modified | datetime     | NO   |     | 0000-00-00 00:00:00 |       |
+# | active   | tinyint(1)   | NO   |     | 1                   |       |
+# +----------+--------------+------+-----+---------------------+-------+
+# 6 rows in set (0.00 sec)
+#
+#And, er, that's it. If you wish to store cleartext passwords (by passing a value greater than 0 for 'storeCleartextPassword'
+#to the constructor) you'll need a 'password_cleartext' column on the mailbox field. 
+#
+#C<getFields> returns C<%_fields>, C<getTables %_tables>. C<setFields> and C<setTables> resets them to the hash passed as an 
+#argument. It does not merge the two hashes.
+#
+#This is the only way you should be interfering with those hashes.
+#
+#Since the module does no guesswork as to the db schema (yet), you might need to use these to get it to load 
+#yours. Even when it does do that, it might guess wrongly.
 
 
 
