@@ -11,7 +11,7 @@ use Carp;
 use Data::Dumper;
 
 our $VERSION;
-$VERSION = "0.0.20130121";
+$VERSION = "0.0.20130623";
 
 =pod
 
@@ -31,113 +31,38 @@ as objects. At best, it's an object-considering means of configuring it.
 
         use Mail::Postfixadmin;
 
-	my $p = Mail::Postfixadmin->new();
-	$p->createDomain(
+	my $pfa = Mail::Postfixadmin->new();
+	$pfa->createDomain(
 		domain        => 'example.org',
 		description   => 'an example',
 		num_mailboxes => '0',
 	);
 
-	$p->createUser(
+	$pfa->createUser(
 		username       => 'avi@example.com',
 		password_plain => 'password',
 		name           => 'avi',
 	);
 
-	my %dominfo = $p->getDomainInfo();
+	my %dominfo = $pfa->getDomainInfo();
 
-	my %userinfo = $p->getUserInfo();
+	my %userinfo = $pfa->getUserInfo();
 
-	$p->changePassword('avi@example.com', 'complexpass');
+	$pfa->changePassword('avi@example.com', 'complexpass');
 
 
 =head1 CONSTRUCTOR AND STARTUP
 
 =head2 new()
 
-Creates and returns a new Mail::Postfixadmin object. You probably want to provide 
-some way of determining how to connect to the database; there are three ways, listed 
-in order of precedence (i.e. the third overrules the second which overrules the
-first):
-
-Firstly, you may simply pass nothing to the constructor, and have it parse 
-C</etc/postfix/main.cf>:
-
-  my $v = Mail::Postfixadmin->new();
-
-Secondly, you may pass C<dbi>, C<dbuser> and C<dbpass> which are essentially the
-three arguments to a C<DBI-E<gt>connect> (they are used for exactly this):
+Creates and returns a new Mail::Postfixadmin object; will parse a Postfixadmin 
+c<config.inc.php> file to get all the configuration. It will check some common 
+locations for this file (c</var/www/postfixadmin>, c</etc/postfixadmin>) and you
+may specify the file to parse by passing c<postfixAdminConfigFile>:
 
   my $v = Mail::Postfixadmin->new(
-         dbi	=> 'DBI:mysql:dbname',
-	 dbuser	=> 'username',
-	 dbpass => 'password'
-  );
-
-Thirdly, you may pass the path to C<main.cf> to the constructor. This causes the 
-constructor to parse C<main.cf> to find the path to one of Postfix's MySQL config
-files. The first of these is then parsed to find the MySQL credentials.
-
- my $v = Mail::Postfixadmin->new(
- 	 maincf	=> '/etc/postfix/main.cf'
- );
-
-
-If C<main.cf> is passed, the C<dbi>, C<dbuser> and C<dbpass> values are ignored 
-and overwritten by data found in the files. C<main.cf> is deemed to have been 
-'passed' if its value contains a forward-slash ('C</>').
-
-=head3 PostfixAdmin configuration file
-
-In order to replicate the behaviour of the PostfixAdmin web UI, this module
-attempts to parse its config file. It wont complain if it's not passed one, but
-behaviour in this situation is undefined.
-
-By default, it will test for C</etc/postfixadmin/config.inc.php> and 
-C</var/www/postfixadmin/config.inc.php>, and the first one which is a file will 
-be used. You may pass the path to your config file with the C<PostfixAdminConfigFile> 
-option:
-
-  my $v = Mail::Postfixadmin->new)
   	PostfixAdminConfigFile => '/home/alice/public_html/postfixadmin/config.inc.php';
   )
-
-=head3 Password storage
-
-By default, passwords are crypted with Crypt::PasswdMD5 and stored in the 
-C<password> field of the relevant table. Optionally, you may also have them 
-stored in cleartext and/or PGP-encrypted forms. Currently, GPG and clear-text 
-password storage is considered experimental.
-
-To do this you need to set the C<storeCleartextPassword> and/or 
-C<storeGPGPassword> keys to a non-zero value and make sure you have the correct
-fields in your DB; cleartext passwords need a C<password_clear> field and GPG 
-ones a C<password_gpg> field in the C<mailbox> table. GPG passwords also require 
-an appropriately configured GPG keyring.
-
-=head4 GPG Passwords
-
-There's a number of other keys for GPG password storage:
-
-  gpgSecretKey  The ID of the secret key.
-  gpgRecipient  One of the ID fields of the public key.
-  gpgBinary	Optional, path to the GPG binary. Defaults to /usr/bin/gpg
-  gpgPassphrase Passphrase for the key(s).
-
-A complete example might read:
-
-  my $v = Mail::Postfixadmin->new(
-        storeGPGPassword => 1,
-	gpgBinary     => '/usr/local/bin/gpg',
-        gpgSecretKey  => '102FC956',
-        gpgRecipient  => 'postfixadmin@avi.co',
-        gpgPassphrase => 'Ue5gi2sei',
-  );
-
-Each of these appear as attributes of the object with the same name so you can, 
-for example, change the key used later on with:
-
-  $p->gpgSecretKey = "102FC958";
 
 
 );
@@ -149,28 +74,22 @@ for example, change the key used later on with:
 sub new() {
 	my $class = shift;
 	my %defaults = (
-		something => '1',
 	);
 	my %params = @_;
 	my %conf = (%defaults, %params);
-
 	my $self = {};
 
 	my %_tables = _tables();
 	$self->{'_tables'} = _tables();
 	$self->{'_fields'} = _fields();
 	$self->{'_postfixAdminConfig'} = _parsePostfixAdminConfigFile($conf{'postfixAdminConfigFile'});
-	# TODO: Document dovecotConfigCmd option
-	$self->{'_dovecotConfig'} = _getDovecotConfig($conf{'dovecotConfigCmd'});
-	$self->{'_postfixConfig'} = _getPostfixConfig($conf{'postfixConfigCmd'});
-	$self->{'_dbi'} = _createDBI(\%conf);
 
-	if($conf{'storeCleartextPasswords'} == 1){
-		_warn ("DB has no support for cleartext passwords, but storeCleartextPasswords set") unless _dbCanStoreCleartextPasswords($self);
+	#As much config as possible comes from PostfixAdmin's config file:
+	foreach(qw/database_password database_host database_prefix database_name database_type database_user/){
+		$conf{$_} = $self->{'_postfixAdminConfig'}->{$_} unless exists($conf{$_});
 	}
-	if($conf{'storeGPGPasswords'} == 1){
-		_warn ("DB has no support for GPG passwords, but storeGPGPasswords set") unless _dbCanStoreCleartextPasswords($self); 
-	}
+
+	$self->{'_dbi'} = _createDBI(\%conf);
 
 	bless($self,$class);
 	return $self;
@@ -520,7 +439,7 @@ sub getAliasUserTargets{
 		fields	=> ['goto'],
 		equals	=> [ 'address', $user ],
 	);
-	return @gotos;
+	return split(/,/, $gotos[0]->{'goto'});
 }
 
 =head3 getUserInfo()
@@ -550,61 +469,11 @@ sub getUserInfo(){
 	my %userinfo;
 	my @results = $self->_dbSelect(
 		table  => 'mailbox',
-		fields => [ qw/name username password maildir quota local_part domain created modified active/ ],
+		fields => ['*'],
 		equals => ['username', $user]
 	);
 	return $results[0];
 }
-
-=head3 getMailboxInfo()
-
-Returns a hash containing info about a (user's) mailbox. Pass it a username as the 
-only argument, get a hashref back describing the mailbox.
-
-Currently the only key is 'path'. When Postfix and Dovecot disagre, the hashref will be of the form:
-
-    $mboxinfo->path = {
-                       postfix => '/var/lib/mail/user@domain',
-		       dovecot => '/var/lib/mail/domain/user',
-    }
-
-But when they agree, it is of a single element:
-
-    $mboxinfo->path = '/var/lib/mail/domain.user';
-
-So you will probably want to do something like this:
-
-    if( ref($mboxinfo->{'path'}) eq "HASH" ){
-         # Deal with the inconsistency
-    }else{
-         my $path = $mboxinfo->{'path'};
-         #carry on as normal
-    }
-
-=cut
-
-sub getMailboxInfo(){
-	my $self = shift;
-	my $user = shift;
-	my $userInfo = $self->getUserInfo($user);
-	my $info;
-	# This is the path to which Postfix will deliver the mail
-	if(my $mailbox_base = $self->{'_postfixConfig'}->{'virtual_mailbox_base'}){
-		$info->{'path'}->{'postfix'} = $mailbox_base."/".$userInfo->{'maildir'};
-	}
-	# This is the path from which Dovecot will have IMAP/POP clients collect the mail:
-	if(my $mail_location = $self->{'_dovecotConfig'}->{'mail_location'}){
-		my ($type,$path) = split(/:/, $mail_location);
-		$info->{'path'}->{'dovecot'} = _interpolateDovecotMailLocation($mail_location, $userInfo);
-	}
-
-	if($info->{'path'}->{'dovecot'} eq $info->{'path'}->{'postfix'}){
-		$info->{'path'} = $info->{'path'}->{'dovecot'};
-	}
-
-	return $info;
-}
-
 
 =head3 getDomainInfo()
 
@@ -1240,7 +1109,7 @@ sub removeAliasUser{
 	if ($user eq ''){
 		_error("No user passed to removeAliasUser");
 	}
-	if (!$self->userIsAlias){
+	if (!$self->userIsAlias($user)){
 		$self->{infoStr} = "user is not an alias ($user)";
 		return 3;
 	}
@@ -1252,22 +1121,138 @@ sub removeAliasUser{
 
 =head2 Admin Users
 
-=head3 createAdminUser() 
+=head3 getAdminUsers()
+
+Returns a hash describing admin users, with usernames as the keys, and 
+an arrayref of domains as values. Accepts a a domain as an optional 
+argument, when that is supplied will only return users who are admins 
+of that domain, and each user's array will be a single value (that domain).
+
+    my %admins = $pfa->getAdminUsers();
+    foreach my $username (keys(%admins)){
+        print "$username is an admin of ", join(" ", @{$admins{$username}}), "\n";
+    }
+
+=cut
+
+sub getAdminUsers {
+	my $self = shift;
+	my $domain = shift;
+	my $query;
+	my @results;
+	if ($domain =~ /.+/){
+		@results = $self->_dbSelect(
+			table  => 'domain_admins',
+			fields => [ 'username', 'domain' ],
+			equals => [
+				['domain', $domain],
+				['domain', 'ALL'],
+			],
+			equals_andor => 'or',
+		);
+	}else{
+		@results = $self->_dbSelect(
+			table  => 'domain_admins',
+			fields => [ 'username', 'domain' ],
+		);
+	}
+	my %return;
+	foreach(@results){
+		if($_->{'domain'} =~ /^ALL$/){
+			foreach my $domain ($self->getDomains()){
+				push(@{$return{$_->{'username'}}}, $domain) unless $domain =~ /^ALL$/;
+			}
+		}else{
+			push(@{$return{$_->{'username'}}}, $_->{'domain'});
+		}
+	}
+	return %return;
+}
+
+=head3 createAdminUser()
+
+Creates an admin user:
+
+$pfa->createAdminUser(
+	username       => 'someone@somedomain.net',
+	domains        => [ "example.net", "example.com", "example.mil" ],
+	password_clear => 'password',
+);
+
+Alternatively, create an admin of a single domain:
+
+$pfa->createAdminUser(
+	username       => 'someone@somedomain.net',
+	domain         => 'example.org',
+	password_clear => 'password',
+);
+
+If domain is set to 'ALL' then the user is set as an admin of all domains. 
+
+Creating an admin user involves both adding a username and password to the admin
+table, and then a domain/user pairing to domain_admins. 
+The former is only attempted if you pass a password to this function; calling this
+with only a username and a domain simply adds that pair to the domain_admin table.
+
+If you call this with a password and a username that already exists, the row in the 
+admin table will remain unchanged, and a warning will be raised. The user/domain 
+pairing will still be written to the domain_admins table.
 
 =cut 
+
 sub createAdminUser{
 	my $self = shift;
-	my $opts = shift;
-	_error("No username passed to createAdminUser") if !$opts->{'username'};
-	_error("No domain passed to createAdminUser") if !$opts->{'domain'};
-	if($opts->{password_crypt}){
-		$opts->{password} = $opts->{password_crypt};
-	}elsif($opts->{password_clear}){
-		$opts->{password} = $self->cryptPassword($opts->{password_clear});
+	my %opts = @_;
+	_error("No username passed to createAdminUser") unless $opts{'username'};
+	_error("No domain passed to createAdminUser") unless $opts{'domain'};
+	if($opts{'password_crypt'}){
+		$opts{'password'} = $opts{'password_crypt'};
+	}elsif($opts{'password_clear'}){
+		$opts{'password'} = $self->cryptPassword($opts{'password_clear'});
 	}
 	
-
+	my @domains;
+	if(exists($opts{'domains'})){
+		@domains = @{$opts{'domains'}};
+	};
+	if(exists($opts{'domain'})){
+		push(@domains, $opts{'domain'});
+	}
+	# Only insert a username and password if there's not already
+	# that username:
+	if($opts{'password'}){
+		my @usernameIsAlreadyAdmin = $self->_dbSelect(
+		     table  => 'admin',
+		     count  => 1,
+		     equals => [ 'username', $opts{'username'} ],
+		) ;
+		
+		say "============================";
+		say Dumper(@usernameIsAlreadyAdmin);
+		say "============================";
+		if(@usernameIsAlreadyAdmin[0] > 0){
+			$self->_warn("Admin '$opts{'username'}' already exists; not adding to admin table");
+		}else{
+			$self->_dbInsert(
+				data => {
+					username => $opts{'username'},
+					password => $opts{'password'},
+				},
+				table => 'admin',
+			);
+		}
+	}
+	foreach my $domain(@domains){
+		$self->_dbInsert(
+			data => {
+				username => $opts{'username'},
+				domain   => $domain,
+			},
+			table => 'domain_admins'
+		)
+	}
 }
+
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
  # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -1427,70 +1412,6 @@ sub _createMailboxPath(){
 	return $maildir;			
 }
 
-sub _getDovecotConfig {
-	my $cmd = shift  || "dovecot -a 2>&1";
-	my $output = `$cmd`;
-	_warn("Failed to get Dovecot output; `$cmd` exited $? and said:\n$output\n") if $? > 0;
-	my $conf;
-	my $lastkey;
-	foreach my $line (split(/\n/, $output)){
-		my @bits = split(/\s*:\s*/, $line);
-		my $key = shift(@bits);
-		my $value = join(":", @bits);
-		chomp $value;
-		if($key =~ /^\s+/){
-			$key =~ s/^\s+/$lastkey\./;
-		}else{
-			$lastkey = $key;
-		}
-		$conf->{$key} = $value;
-	}
-
-	return $conf;
-
-}
-
-=head3 _interpolateDovecotMailLocation()
-
-Given the value of Dovecot's mail_location (should be at c<$self->{'_dovecotConfig'}->{'mail_location'}>)
-and the output of getUserInfo, will return the path to the mailbox, 
-as understood by Dovecot 
-
-=cut 
-
-sub _interpolateDovecotMailLocation{
-	my $mail_location = shift;
-	my $userInfo = shift;
-
-	my @bits = split(/:/, $mail_location);
-	my $type = shift(@bits);
-	my $mail_location = join(":", @bits);
-
-	$mail_location =~ s/\%u/$userInfo->{'username'}/g;
-	$mail_location =~ s/\%n/$userInfo->{'local_part'}/g;
-	$mail_location =~ s/\%d/$userInfo->{'domain'}/g;
-
-	if($type =~ /^maildir$/i){
-		$mail_location.="/";
-	}
-
-	$mail_location =~ s#//#/#g;
-
-	return $mail_location;
-}
-
-sub _getPostfixConfig {
-	my $cmd = shift || "postconf";
-	my $output = `$cmd`;
-	_warn ("Failed to get Postfix config: `$cmd` exited $? and said:\n$output\n") if $? > 0;
-	my $conf;
-	foreach my $line (split(/\n/, $output)){
-		my ($key,$value) = split(/\s*=\s*/, $line);
-		chomp $value;
-		$conf->{$key} = $value;
-	}
-	return $conf;
-}
 
 =head3 _findPostfixAdminConfigFile()
 
@@ -1572,34 +1493,6 @@ sub _parsePostfixConfigFile{
 	return @dbiString;
 }
 
-=head3 _parseMysqlConfigFile()
-
-Parses a MySQL configuration file. Used by _createDBI() which is called by the constructor.
-
-=cut
-
-sub _parseMysqlConfigFile{
-	local $/ = "\n";
-	my $confFile = shift;
-	open(my $f, "<", $confFile) or die ("Error opening MySQL config file ($confFile) : $!");
-	my ($user, $password, $host, $port, %db);
-	foreach(<$f>){
-		chomp $_;
-		my ($k,$v) = split(/\s*=\s*/, $_);
-		given($k){
-			when(/^user/){$db{user}=$v;}
-			when(/^password/){$db{pass}=$v;}
-			when(/^host/){$db{host}=$v;}
-			##TODO: find out how you're supposed to do this in a mysql.cnf:
-			when(/^database/){$db{name}=$v;}
-		}
-	}
-
-	my @dbiString = ("DBI:mysql:$db{'name'}:host=$db{'host'}:$db{'port'}", "$db{'user'}", "$db{'pass'}");
-	return @dbiString;
-}
-
-
 
 =cut
 
@@ -1664,7 +1557,11 @@ sub _fields(){
 	my %fields;
 	$fields{'admin'} = { 
 	                        'domain'        => 'domain',
-	                        'description'   => 'description'
+	                        'username'	=> 'username',
+				'password'	=> 'password',
+				'created'	=> 'created',
+				'modified'	=> 'modified',
+				'active'	=> 'active'
 	};
 	$fields{'alias'} = {
 				'address'	=> 'address',
@@ -1790,27 +1687,10 @@ options.
 
 sub _createDBI{
 	my $conf = shift;
-	# Here we build a DBI object using whatever DB credentials we can find:
-	my @_dbi;
-	$conf->{'_dbi'} = $conf->{'dbi'} if exists($conf->{'dbi'});
-	unless(exists($conf->{'_dbi'})){
-		if($conf->{mysqlconf} =~ m@/@){
-			@_dbi = _parseMysqlConfigFile($conf->{mysqlconf});
-		}else{
-			unless(exists($conf->{maincf})){
-				$conf->{maincf} = '/etc/postfix/main.cf';
-			}
-			@_dbi = _parsePostfixConfigFile($conf->{maincf});
-		}	
-		$conf->{'_dbi'} = $_dbi[0];
-		$conf->{dbuser} = $_dbi[1];
-		$conf->{dbpass} = $_dbi[2];
-	}
-	my $dbi = DBI->connect(
-		$conf->{'_dbi'},
-		$conf->{dbuser},
-		$conf->{dbpass}
-	);
+	my $dataSource = "DBI:".$conf->{'database_type'}.":".$conf->{'database_name'};
+	my $username   = $conf->{'database_user'};
+	my $password   = $conf->{'database_password'};
+	my $dbi = DBI->connect($dataSource, $username, $password);	
 	if (!$dbi){
 		_warn("No dbi object created");
 		return;
@@ -1835,31 +1715,34 @@ Hopefully, a generic sub to pawn all db inserts off onto:
 
 sub _dbInsert {
 	my $self = shift;
-	my $opts = shift;
-	_error("_dbInsert called with no table name (this is probably a bug in the module)") unless $opts->{'table'};
-	my $table = $self->_tables->{$self->{'table'}};
-	_error ("_dbInsert couldn't resolve passed table name into a proper table name") unless $table;
+	my %opts = @_;
+	_error("_dbInsert called with no table name (this is probably a bug in the module)") unless $opts{'table'};
+	my $table = $self->_tables->{$opts{'table'}};
+	_error ("_dbInsert couldn't resolve passed table ($opts{'table'}) name into a proper table name") unless $table;
 
-	_error("_dbInsert called with no data to insert") unless $opts->{'data'};
+	_error("_dbInsert called with no data to insert") unless $opts{'data'};
 
 	my(@fields, @values);
-	foreach(keys(%{$opts->{'data'}})){
+	foreach(keys(%{$opts{'data'}})){
 		push(@fields, $_);
-		push(@values, $opts->{'data'}->{$_});
+		push(@values, $opts{'data'}->{$_});
 	}
 
 	my $query = "insert into `$table` ";
 	$query.="(`";
-	$query.=join("`, `", @$opts->{'fields'});
+	$query.=join("`, `", @fields);
 	$query.="`) ";
 
 	$query.= "values (";
 	foreach(@values){
 		$query.="?, ";
 	}
-	$query = s/, $//;
+	$query =~ s/, $//;
 	$query.=")";
-	print $query;
+
+	my $sth = $self->{'_dbi'}->prepare($query);
+	$sth->execute(@values) or _error ("_dbInsert execute failed: $!\nQuery: $query");
+	return $?;
 
 }
 
@@ -1876,13 +1759,28 @@ Hopefully, a generic sub to pawn all db lookups off onto
 		count     => something
 	}
 
-If count *exists*, a count is returned. If not, it isn't.
+If count *exists*, a count is returned. If not, it isn't. More 
+than one pair of 'equals' may be passed by passing an array of 
+arrays. In this case you can specify whether these are an 'and' 
+or an 'or' with the 'equalsandor' param:
+
+	_dbSelect(
+		table	     => 'table',
+		fields	     => ['field1', 'field2'],
+		equals       => [
+					['field2', "something"],
+					['field7', "something else"],
+			        ],
+		equals_or => "or";
+	);
+If this is set to anything other than 'or' it is an 'and' search.
+
 Returns an array of hashes, each hash representing a row from
 the db with keys as field names.
 
 =cut
 
-sub _dbSelect {
+sub _dbSelect{
 	my $self = shift;
 	my %opts = @_;
 	my $table = $opts{'table'};
@@ -1896,27 +1794,51 @@ sub _dbSelect {
 	}
 
 	foreach my $field (@{$opts{'fields'}}){
-		unless(exists($self->{'_fields'}->{$table}->{$field})){
-			_error("Field $self->{'_fields'}->{$table}->{$field} in table $table not defined in %_fields");
+		if($field =~ /^\*$/){
+			push(@fields, $field);
+		}else{
+			unless(exists($self->{'_fields'}->{$table}->{$field})){
+				_error("Field $self->{'_fields'}->{$table}->{$field} in table $table not defined in %_fields");
+			}
+			push (@fields, $self->{'_fields'}->{$table}->{$field});
 		}
-		push (@fields, $self->{'_fields'}->{$table}->{$field});
 	}
-
 	my $query = "select ";
 	if (exists($opts{count})){
 		$query .= "count(*) ";
 	}else{
 		$query .= join(", ", @fields);
 	}
+
 	$query .= " from $table ";
 	if ($opts{'equals'} > 0){
-		my ($field,$value) = @{$opts{'equals'}};
-		if (exists($self->{'_fields'}->{$table}->{$field})){
-			$field = $self->{'_fields'}->{$table}->{$field};
+		$query.="where ";
+		my $andor;
+		if($opts{'equals_andor'} =~ /^or$/i){
+			$andor = "or";
 		}else{
-			_error("Field $field in table $table (used in SQL conditional) not defined");
+			$andor = "and";
 		}
-		$query .= " where $field = '$value' ";
+		# We may be passed one of two things to 'equals'; an array of 
+		# two elements (element 1 must equal element 2) or an array of 
+		# arrays, each of which is of that form. Here, if we're passed a
+		# one-dimensional array, we move it to being the first element of
+		# a two-dimensional one:
+		if(ref($opts{'equals'}->[0]) eq ''){
+			my $equals = $opts{'equals'};
+			delete($opts{'equals'});
+			push(@{$opts{'equals'}}, $equals);
+		}
+		foreach my $equals (@{$opts{'equals'}}){
+			my ($field,$value) = @{$equals};
+			if (exists($self->{'_fields'}->{$table}->{$field})){
+				$field = $self->{'_fields'}->{$table}->{$field};
+			}else{
+				_error("Field $field in table $table (used in SQL conditional) not defined");
+			}
+			$query .= " $field = '$value' $andor ";
+		}
+		$query =~ s/$andor $//;
 	}elsif ($opts{'like'} > 0){
 		my ($field,$value) = @{$opts{'like'}};
 		if (exists($self->{'_fields'}->{$table}->{$field})){
@@ -1977,9 +1899,9 @@ Handy wrappers for when I want to simply warn or spit out an error.
 =cut
 
 sub _warn{
-	my $message = shift;
+	my $message = pop;
 	chomp $message;
-	Carp::carp($message."\n");
+	Carp::carp($message);
 }
 sub _error{
 	my $message = shift;
