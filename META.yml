@@ -15,7 +15,7 @@ no_index:
     - t
 prereqs:
   runtime:
-	  requires:
+    requires:
       DBI: 0
       Crypt::PasswdMD5: 0
       Carp: 0
@@ -26,4 +26,7 @@ provides:
 resources:
   bugtracker: https://github.com/BigRedS/Mail-Postfixadmin/issues
   homepage: https://github.com/BigRedS/Mail-Postfixadmin/
-  repository: https://github.com/BigRedS/Mail-Postfixadmin.git
+  repository:
+    url: https://github.com/BigRedS/Mail-Postfixadmin.git
+    web: https://github.com/BigRedS/Mail-Postfixadmin
+    type: 'git'
